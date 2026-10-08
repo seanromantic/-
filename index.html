@@ -1,12 +1,69 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <title>联机测试</title>
+  <meta charset="UTF-8">
+  <title>联机聊天室</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 10px; }
+    #messages { list-style: none; padding: 0; }
+    #messages li { display: flex; align-items: flex-start; margin-bottom: 10px; }
+    .avatar { width: 36px; height: 36px; border-radius: 50%; margin-right: 8px; flex-shrink: 0; }
+    .bubble { background: #f1f1f1; border-radius: 12px; padding: 8px 12px; }
+    .name { font-size: 12px; color: #888; margin-bottom: 2px; }
+    .input-bar { display: flex; gap: 8px; margin-top: 10px; }
+    input { flex: 1; padding: 8px; }
+    button { padding: 8px 16px; }
+  </style>
 </head>
 <body>
-    <h1>前端跑通了</h1>
-    <p>如果你能看到这行字，说明文件没问题。</p>
-    <button onclick="alert('按钮也能点')">点我</button>
+  <h2>联机聊天室</h2>
+  <p id="status">连接中...</p>
+  <ul id="messages"></ul>
+  <div class="input-bar">
+    <input id="msg" placeholder="说点什么..." />
+    <button onclick="sendMsg()">发送</button>
+  </div>
+
+  <script>
+    const colors = ['FF5733', '33C1FF', '8E44AD', '27AE60', 'F1C40F', 'E67E22'];
+    const myName = '玩家' + Math.floor(Math.random() * 9000 + 1000);
+    const myColor = colors[Math.floor(Math.random() * colors.length)];
+    const myAvatar = `https://ui-avatars.com/api/?name=${myName}&background=${myColor}&color=fff`;
+
+    let ws = new WebSocket('wss://seanromanticgithubio.15819429661.workers.dev');
+
+    ws.onopen = function() {
+      document.getElementById('status').innerText = '已连接';
+    };
+
+    ws.onmessage = function(event) {
+      const data = JSON.parse(event.data);
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <img class="avatar" src="${data.avatar}" />
+        <div>
+          <div class="name">${data.name}</div>
+          <div class="bubble">${data.text}</div>
+        </div>
+      `;
+      document.getElementById('messages').appendChild(li);
+      window.scrollTo(0, document.body.scrollHeight);
+    };
+
+    ws.onclose = function() {
+      document.getElementById('status').innerText = '连接已断开';
+    };
+
+    function sendMsg() {
+      const text = document.getElementById('msg').value;
+      if (!text || ws.readyState !== 1) return;
+      ws.send(JSON.stringify({ name: myName, avatar: myAvatar, text: text }));
+      document.getElementById('msg').value = '';
+    }
+
+    document.getElementById('msg').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') sendMsg();
+    });
+  </script>
 </body>
 </html>
