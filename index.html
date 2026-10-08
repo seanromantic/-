@@ -2,7 +2,8 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>联机聊天室</title>
+  <title>联机测试</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 10px; }
     #messages { list-style: none; padding: 0; }
@@ -16,7 +17,7 @@
   </style>
 </head>
 <body>
-  <h2>联机聊天室</h2>
+  <h2>联机测试</h2>
   <p id="status">连接中...</p>
   <ul id="messages"></ul>
   <div class="input-bar">
@@ -25,39 +26,43 @@
   </div>
 
   <script>
+    const SUPABASE_URL = 'https://ctmhhytkjzqqgyezkuqw.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_qBTe-85LwGpS8gsPAANXcQ_BU3HEhqR';
+
     const colors = ['FF5733', '33C1FF', '8E44AD', '27AE60', 'F1C40F', 'E67E22'];
     const myName = '玩家' + Math.floor(Math.random() * 9000 + 1000);
     const myColor = colors[Math.floor(Math.random() * colors.length)];
     const myAvatar = `https://ui-avatars.com/api/?name=${myName}&background=${myColor}&color=fff`;
 
-    let ws = new WebSocket('wss://seanromanticgithubio.15819429661.workers.dev');
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const channel = client.channel('chat-room');
 
-    ws.onopen = function() {
-      document.getElementById('status').innerText = '已连接';
-    };
-
-    ws.onmessage = function(event) {
-      const data = JSON.parse(event.data);
-      const li = document.createElement('li');
-      li.innerHTML = `
-        <img class="avatar" src="${data.avatar}" />
-        <div>
-          <div class="name">${data.name}</div>
-          <div class="bubble">${data.text}</div>
-        </div>
-      `;
-      document.getElementById('messages').appendChild(li);
-      window.scrollTo(0, document.body.scrollHeight);
-    };
-
-    ws.onclose = function() {
-      document.getElementById('status').innerText = '连接已断开';
-    };
+    channel
+      .on('broadcast', { event: 'chat' }, (payload) => {
+        const data = payload.payload;
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <img class="avatar" src="${data.avatar}" />
+          <div>
+            <div class="name">${data.name}</div>
+            <div class="bubble">${data.text}</div>
+          </div>
+        `;
+        document.getElementById('messages').appendChild(li);
+        window.scrollTo(0, document.body.scrollHeight);
+      })
+      .subscribe((status) => {
+        document.getElementById('status').innerText = status === 'SUBSCRIBED' ? '已连接' : '连接中...';
+      });
 
     function sendMsg() {
       const text = document.getElementById('msg').value;
-      if (!text || ws.readyState !== 1) return;
-      ws.send(JSON.stringify({ name: myName, avatar: myAvatar, text: text }));
+      if (!text) return;
+      channel.send({
+        type: 'broadcast',
+        event: 'chat',
+        payload: { name: myName, avatar: myAvatar, text: text },
+      });
       document.getElementById('msg').value = '';
     }
 
