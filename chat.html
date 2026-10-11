@@ -4,10 +4,9 @@
   <meta charset="UTF-8">
   <title>SAMARRA · 聊天室</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.bootcdn.net/ajax/libs/supabase-js/2.39.0/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
       font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
       min-height: 100vh;
@@ -18,11 +17,9 @@
       color: #1e293b;
       padding: 24px 16px;
     }
-
-    /* 顶部：返回在左，状态在右 */
     .topbar {
       width: 100%;
-      max-width: 300px;
+      max-width: 320px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -38,76 +35,16 @@
       font-size: 13px;
     }
     .status { font-size: 12px; color: #94a3b8; }
-
-    /* 第一屏 */
-    .join-screen {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      width: 100%;
-      max-width: 300px;
-    }
-    .join-screen h2 { font-size: 18px; color: #475569; }
-
-    .public-room {
-      width: 100%;
-      padding: 16px 20px;
-      background: #fff;
-      border: 1px solid #dbe3f0;
-      border-radius: 14px;
-      text-align: center;
-      cursor: pointer;
-      transition: 0.25s;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    }
-    .public-room:hover {
-      transform: translateY(-2px);
-      border-color: #5b8cff;
-      box-shadow: 0 8px 20px rgba(91,140,255,0.15);
-    }
-    .public-room .icon { font-size: 26px; display: block; margin-bottom: 8px; }
-    .public-room .label { font-size: 15px; font-weight: 600; color: #334155; }
-    .public-room .sub { font-size: 11px; color: #94a3b8; margin-top: 4px; }
-
-    .divider {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      width: 100%;
-      color: #94a3b8;
-      font-size: 12px;
-    }
-    .divider::before, .divider::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: #e2e8f0;
-    }
-
-    .join-screen input,
-    .join-screen button { width: 100%; }
-
-    /* 第二屏 */
-    .chat-screen {
-      flex: 1;
-      width: 100%;
-      max-width: 300px;
-      display: none;
-      flex-direction: column;
-      min-height: 0;
-    }
     .chat-box {
-      flex: 1;
+      width: 100%;
+      max-width: 320px;
       background: #fff;
       border: 1px solid #e2e8f0;
       border-radius: 14px;
       padding: 14px;
       display: flex;
       flex-direction: column;
-      min-height: 200px;
+      min-height: 300px;
       margin-bottom: 12px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.04);
     }
@@ -126,9 +63,12 @@
       color: #334155;
     }
     #messages li .sender { color: #5b8cff; font-weight: 600; margin-right: 4px; }
-
-    .input-bar { display: flex; gap: 8px; }
-
+    .input-bar {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      max-width: 320px;
+    }
     input {
       flex: 1;
       padding: 10px 12px;
@@ -140,7 +80,6 @@
       outline: none;
     }
     input:focus { border-color: #5b8cff; }
-
     button {
       padding: 10px 18px;
       background: linear-gradient(90deg, #5b8cff, #8e6bff);
@@ -151,53 +90,31 @@
       font-weight: 600;
       cursor: pointer;
     }
-
-    .room-label {
-      font-size: 12px;
-      color: #94a3b8;
-      margin-bottom: 8px;
-      text-align: center;
-    }
   </style>
 </head>
 <body>
 
   <div class="topbar">
     <a class="back" href="index.html">← 返回</a>
-    <span class="status" id="status">加载中...</span>
+    <span class="status" id="status">就绪</span>
   </div>
 
-  <div class="join-screen" id="joinScreen">
-    <h2>选择房间</h2>
-    <div class="public-room" id="publicBtn">
-      <span class="icon">🌐</span>
-      <div class="label">公开聊天室</div>
-      <div class="sub">所有人可进，永久置顶</div>
-    </div>
-    <div class="divider">或 输入房间号</div>
-    <input id="roomInput" placeholder="比如 123" />
-    <button id="enterBtn">进入房间</button>
+  <div class="chat-box">
+    <ul id="messages"></ul>
   </div>
-
-  <div class="chat-screen" id="chatScreen">
-    <div class="room-label" id="roomLabel"></div>
-    <div class="chat-box">
-      <ul id="messages"></ul>
-    </div>
-    <div class="input-bar">
-      <input id="msg" placeholder="说点什么..." />
-      <button id="sendBtn">发送</button>
-    </div>
+  <div class="input-bar">
+    <input id="msg" placeholder="说点什么..." />
+    <button onclick="sendMsg()">发送</button>
   </div>
 
   <script>
-    var SUPABASE_URL = 'https://djvsugbstenltenktpwv.supabase.co';
-    var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqdnN1Z2JzdGVubHRlbmt0cHd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2OTI0MDcsImV4cCI6MjEwNzI2ODQwN30.XMBE7NCridZ34BG7LyRiHQRZP0SkVI209uQhqSgcIAs';
-
     if (typeof supabase === 'undefined') {
       document.getElementById('status').innerText = 'SDK 加载失败';
       throw new Error('SDK not loaded');
     }
+
+    var SUPABASE_URL = 'https://djvsugbstenltenktpwv.supabase.co';
+    var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqdnN1Z2JzdGVubHRlbmt0cHd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2OTI0MDcsImV4cCI6MjEwNzI2ODQwN30.XMBE7NCridZ34BG7LyRiHQRZP0SkVI209uQhqSgcIAs';
 
     var myName = localStorage.getItem('myName');
     if (!myName) {
@@ -207,54 +124,46 @@
 
     var client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     var channel = null;
-    var currentRoom = '';
 
-    function cleanRoom(room) { return String(room).replace(/[^a-zA-Z0-9]/g, ''); }
-    function makeTopic(room) { return 'room:' + room + ':messages'; }
-
-    function joinRoom(room) {
-      if (!room) return;
-      var safeRoom = cleanRoom(room);
-      if (!safeRoom) { alert('房间号只能用字母和数字'); return; }
-
-      if (channel) { client.removeChannel(channel); channel = null; }
-      currentRoom = safeRoom;
-
-      document.getElementById('joinScreen').style.display = 'none';
-      document.getElementById('chatScreen').style.display = 'flex';
-      document.getElementById('roomLabel').innerText =
-        safeRoom === 'public' ? '公开聊天室' : '房间：' + room;
-      document.getElementById('messages').innerHTML = '';
-      document.getElementById('status').innerText = '连接中...';
-
-      channel = client.channel(makeTopic(safeRoom), {
-        config: { broadcast: { self: true, ack: true } }
-      });
-
-      channel
-        .on('broadcast', { event: 'chat' }, function (payload) {
-          addMessage(payload.payload.name, payload.payload.text);
-        })
-        .subscribe(function (status) {
-          document.getElementById('status').innerText =
-            status === 'SUBSCRIBED' ? '已连接' : '状态：' + status;
-        });
-
-      loadHistory(safeRoom);
-    }
-
-    function joinCustomRoom() {
-      var room = document.getElementById('roomInput').value.trim();
-      if (!room) { alert('请输入房间号'); return; }
-      joinRoom(room);
-    }
-
-    function loadHistory(room) {
-      client.from('messages').select('*').eq('room', room)
+    // ---------- 第一步：页面加载完，先读历史 ----------
+    function step1_loadHistory() {
+      document.getElementById('status').innerText = '读历史...';
+      client.from('messages').select('*').eq('room', 'public')
         .order('created_at', { ascending: true }).limit(100)
         .then(function (res) {
           if (res.data) res.data.forEach(function (m) { addMessage(m.name, m.text); });
+          // 历史读完，再进第二步
+          step2_connect();
         });
+    }
+
+    // ---------- 第二步：连频道 ----------
+    function step2_connect() {
+      document.getElementById('status').innerText = '连接中...';
+      channel = client.channel('room:public', {
+        config: { broadcast: { self: true, ack: true } }
+      });
+
+      channel.subscribe(function (status, err) {
+        if (status === 'SUBSCRIBED') {
+          document.getElementById('status').innerText = '已连接';
+          // 连接成功，再进第三步
+          step3_bindEvents();
+        } else if (status === 'CHANNEL_ERROR') {
+          document.getElementById('status').innerText = '订阅被拒绝';
+        } else if (status === 'TIMED_OUT') {
+          document.getElementById('status').innerText = '连接超时';
+        } else {
+          document.getElementById('status').innerText = '状态：' + status;
+        }
+      });
+    }
+
+    // ---------- 第三步：绑定广播事件 ----------
+    function step3_bindEvents() {
+      channel.on('broadcast', { event: 'chat' }, function (payload) {
+        addMessage(payload.payload.name, payload.payload.text);
+      });
     }
 
     function addMessage(name, text) {
@@ -269,7 +178,7 @@
       var text = document.getElementById('msg').value;
       if (!text || !channel) return;
       addMessage(myName + '（我）', text);
-      client.from('messages').insert({ name: myName, text: text, room: currentRoom });
+      client.from('messages').insert({ name: myName, text: text, room: 'public' });
       channel.send({
         type: 'broadcast',
         event: 'chat',
@@ -278,11 +187,9 @@
       document.getElementById('msg').value = '';
     }
 
+    // ---------- 启动 ----------
     window.onload = function () {
-      document.getElementById('publicBtn').onclick = function () { joinRoom('public'); };
-      document.getElementById('enterBtn').onclick = joinCustomRoom;
-      document.getElementById('sendBtn').onclick = sendMsg;
-      document.getElementById('status').innerText = '就绪';
+      step1_loadHistory();
     };
   </script>
 </body>
