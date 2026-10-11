@@ -8,10 +8,7 @@
     body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 10px; }
     #status { color: #888; }
     #messages { list-style: none; padding: 0; min-height: 200px; border: 1px solid #ddd; border-radius: 8px; padding: 10px; }
-    #messages li { display: flex; align-items: flex-start; margin-bottom: 10px; }
-    .avatar { width: 36px; height: 36px; border-radius: 50%; margin-right: 8px; flex-shrink: 0; }
-    .bubble { background: #f1f1f1; border-radius: 12px; padding: 8px 12px; }
-    .name { font-size: 12px; color: #888; margin-bottom: 2px; }
+    #messages li { margin-bottom: 10px; }
     .input-bar { display: flex; gap: 8px; margin-top: 10px; }
     input { flex: 1; padding: 8px; }
     button { padding: 8px 16px; }
@@ -27,13 +24,13 @@
   </div>
 
   <script>
-    const colors = ['FF5733', '33C1FF', '8E44AD', '27AE60', 'F1C40F', 'E67E22'];
-    const myName = '玩家' + Math.floor(Math.random() * 9000 + 1000);
-    const myColor = colors[Math.floor(Math.random() * colors.length)];
-    const myAvatar = `https://ui-avatars.com/api/?name=${myName}&background=${myColor}&color=fff`;
+    const PUSHER_KEY = '3565c2e5bcaa05889efa';
+    const CLUSTER = 'ap3';
 
-    const pusher = new Pusher('3565c2e5bcaa05889efa', { cluster: 'ap3' });
-    const channel = pusher.subscribe('chat-room');
+    const myName = '玩家' + Math.floor(Math.random() * 9000 + 1000);
+
+    const pusher = new Pusher(PUSHER_KEY, { cluster: CLUSTER });
+    const channel = pusher.subscribe('private-chat-room');
 
     pusher.connection.bind('connected', function() {
       document.getElementById('status').innerText = '已连接';
@@ -43,35 +40,33 @@
       document.getElementById('status').innerText = '连接已断开';
     });
 
-    function addMessage(data) {
+    // 接收别人发来的消息
+    channel.bind('client-chat', function(data) {
+      addMessage(data.name, data.text);
+    });
+
+    // 本地显示消息
+    function addMessage(name, text) {
       const li = document.createElement('li');
-      li.innerHTML = `
-        <img class="avatar" src="${data.avatar}" />
-        <div>
-          <div class="name">${data.name}</div>
-          <div class="bubble">${data.text}</div>
-        </div>
-      `;
+      li.innerText = name + '：' + text;
       document.getElementById('messages').appendChild(li);
       window.scrollTo(0, document.body.scrollHeight);
     }
 
-    channel.bind('client-chat', function(data) {
-      addMessage(data);
-    });
-
+    // 发送消息
     function sendMsg() {
       const text = document.getElementById('msg').value;
       if (!text) return;
 
-      // 本地先显示自己发的消息，方便测试
-      addMessage({ name: myName + '（我）', avatar: myAvatar, text: text });
+      // 先本地显示自己发的
+      addMessage(myName + '（我）', text);
 
+      // 广播给其他人
       channel.trigger('client-chat', {
         name: myName,
-        avatar: myAvatar,
         text: text
       });
+
       document.getElementById('msg').value = '';
     }
 
