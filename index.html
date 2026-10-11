@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>联机聊天室</title>
-  <script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 10px; }
     #status { color: #888; }
@@ -24,28 +24,43 @@
   </div>
 
   <script>
-    const PUSHER_KEY = '3565c2e5bcaa05889efa';
-    const CLUSTER = 'ap3';
+    const SUPABASE_URL = 'https://djvsugbstenltenktpwv.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqdnN1Z2JzdGVubHRlbmt0cHd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2OTI0MDcsImV4cCI6MjEwNzI2ODQwN30.XMBE7NCridZ34BG7LyRiHQRZP0SkVI209uQhqSgcIAs';
 
     const myName = '玩家' + Math.floor(Math.random() * 9000 + 1000);
 
-    const pusher = new Pusher(PUSHER_KEY, { cluster: CLUSTER });
-    const channel = pusher.subscribe('private-chat-room');
-
-    pusher.connection.bind('connected', function() {
-      document.getElementById('status').innerText = '已连接';
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const channel = client.channel('chat-room', {
+      config: { broadcast: { self: true, ack: true } }
     });
 
-    pusher.connection.bind('disconnected', function() {
-      document.getElementById('status').innerText = '连接已断开';
-    });
+    // 1. 先读历史消息
+    async function loadHistory() {
+      const { data, error } = await client
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: true })
+        .limit(50);
 
-    // 接收别人发来的消息
-    channel.bind('client-chat', function(data) {
-      addMessage(data.name, data.text);
-    });
+      if (error) {
+        document.getElementById('status').innerText = '读取历史失败：' + error.message;
+        return;
+      }
+      data.forEach((msg) => addMessage(msg.name, msg.text));
+    }
 
-    // 本地显示消息
+    // 2. 订阅新消息
+    channel
+      .on('broadcast', { event: 'chat' }, (payload) => {
+        const data = payload.payload;
+        addMessage(data.name, data.text);
+      })
+      .subscribe((status) => {
+        document.getElementById('status').innerText =
+          status === 'SUBSCRIBED' ? '已连接' : '状态：' + status;
+      });
+
+    // 3. 显示消息
     function addMessage(name, text) {
       const li = document.createElement('li');
       li.innerText = name + '：' + text;
@@ -53,18 +68,22 @@
       window.scrollTo(0, document.body.scrollHeight);
     }
 
-    // 发送消息
-    function sendMsg() {
+    // 4. 发消息：先存数据库，再广播
+    async function sendMsg() {
       const text = document.getElementById('msg').value;
       if (!text) return;
 
-      // 先本地显示自己发的
+      // 本地先显示
       addMessage(myName + '（我）', text);
 
-      // 广播给其他人
-      channel.trigger('client-chat', {
-        name: myName,
-        text: text
+      // 存进数据库（这样离线的人也能看到历史）
+      await client.from('messages').insert({ name: myName, text: text });
+
+      // 广播给此刻在线的人（实时显示）
+      channel.send({
+        type: 'broadcast',
+        event: 'chat',
+        payload: { name: myName, text: text }
       });
 
       document.getElementById('msg').value = '';
@@ -73,6 +92,9 @@
     document.getElementById('msg').addEventListener('keypress', function(e) {
       if (e.key === 'Enter') sendMsg();
     });
+
+    // 页面加载时，先读历史
+    loadHistory();
   </script>
 </body>
 </html>
