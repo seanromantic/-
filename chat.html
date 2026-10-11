@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>SAMARRA · 聊天室</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: #0b1120;
+      background-image:
+        radial-gradient(circle at 15% 15%, rgba(96,165,250,0.18), transparent 45%),
+        radial-gradient(circle at 85% 85%, rgba(167,139,250,0.18), transparent 45%);
+      color: #e2e8f0;
+      padding: 16px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      max-width: 640px;
+      width: 100%;
+      margin: 0 auto 12px;
+    }
+
+    .back {
+      color: #60a5fa;
+      text-decoration: none;
+      font-size: 14px;
+      padding: 6px 12px;
+      border: 1px solid rgba(96,165,250,0.4);
+      border-radius: 8px;
+      transition: 0.2s;
+    }
+
+    .back:hover {
+      background: rgba(96,165,250,0.15);
+    }
+
+    .title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      background: linear-gradient(90deg, #60a5fa, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .status {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-left: auto;
+    }
+
+    .chat-box {
+      flex: 1;
+      max-width: 640px;
+      width: 100%;
+      margin: 0 auto;
+      background: rgba(30, 41, 59, 0.6);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    #messages {
+      list-style: none;
+      padding: 0;
+      flex: 1;
+      overflow-y: auto;
+      margin-bottom: 12px;
+    }
+
+    #messages li {
+      margin-bottom: 10px;
+      font-size: 14px;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    #messages li .sender {
+      color: #60a5fa;
+      font-weight: 600;
+      margin-right: 4px;
+    }
+
+    .input-bar {
+      display: flex;
+      gap: 8px;
+    }
+
+    input {
+      flex: 1;
+      padding: 10px 12px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 10px;
+      background: rgba(15, 23, 42, 0.8);
+      color: #e2e8f0;
+      font-size: 14px;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: rgba(96, 165, 250, 0.6);
+    }
+
+    button {
+      padding: 10px 20px;
+      background: linear-gradient(90deg, #5b8cff, #8e6bff);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <a class="back" href="index.html">← 返回</a>
+    <span class="title">聊天室</span>
+    <span class="status" id="status">连接中...</span>
+  </div>
+
+  <div class="chat-box">
+    <ul id="messages"></ul>
+    <div class="input-bar">
+      <input id="msg" placeholder="说点什么..." />
+      <button onclick="sendMsg()">发送</button>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://djvsugbstenltenktpwv.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqdnN1Z2JzdGVubHRlbmt0cHd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2OTI0MDcsImV4cCI6MjEwNzI2ODQwN30.XMBE7NCridZ34BG7LyRiHQRZP0SkVI209uQhqSgcIAs';
+
+    // 同设备固定昵称
+    let myName = localStorage.getItem('myName');
+    if (!myName) {
+      myName = '玩家' + Math.floor(Math.random() * 9000 + 1000);
+      localStorage.setItem('myName', myName);
+    }
+
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const channel = client.channel('chat-room', {
+      config: { broadcast: { self: true, ack: true } }
+    });
+
+    // 读历史
+    async function loadHistory() {
+      const { data } = await client
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: true })
+        .limit(100);
+      if (data) data.forEach(m => addMessage(m.name, m.text));
+    }
+
+    // 订阅新消息
+    channel
+      .on('broadcast', { event: 'chat' }, (payload) => {
+        addMessage(payload.payload.name, payload.payload.text);
+      })
+      .subscribe((status) => {
+        document.getElementById('status').innerText =
+          status === 'SUBSCRIBED' ? '已连接' : '状态：' + status;
+      });
+
+    // 显示消息
+    function addMessage(name, text) {
+      const li = document.createElement('li');
+      li.innerHTML = `<span class="sender">${name}：</span>${text}`;
+      document.getElementById('messages').appendChild(li);
+      const box = document.getElementById('messages');
+      box.scrollTop = box.scrollHeight;
+    }
+
+    // 发消息：存库 + 广播
+    async function sendMsg() {
+      const
