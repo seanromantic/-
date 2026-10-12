@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>SAMARRA · 登录</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: #faf8f5; color: #1e293b; padding: 20px;
+}
+.card {
+  width: 100%; max-width: 320px; background: #fff;
+  border: 1px solid #ebe5dc; border-radius: 20px;
+  padding: 32px 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+}
+h1 {
+  font-size: 26px; font-weight: 800; letter-spacing: 4px;
+  background: linear-gradient(90deg, #5b8cff, #8e6bff);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  text-align: center; margin-bottom: 6px;
+}
+.sub { text-align: center; font-size: 12px; color: #94a3b8; margin-bottom: 24px; }
+label { display: block; font-size: 12px; color: #78716c; margin-bottom: 6px; }
+input {
+  width: 100%; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid #ebe5dc; background: #fff; color: #1e293b;
+  font-size: 14px; outline: none; margin-bottom: 14px;
+}
+input:focus { border-color: #5b8cff; box-shadow: 0 0 0 3px rgba(91,140,255,0.1); }
+button {
+  width: 100%; padding: 12px;
+  background: linear-gradient(90deg, #5b8cff, #8e6bff);
+  color: #fff; border: none; border-radius: 10px;
+  font-size: 15px; font-weight: 600; cursor: pointer;
+}
+button:hover { opacity: 0.9; }
+.msg { font-size: 12px; color: #ef4444; text-align: center; margin-top: 10px; min-height: 16px; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h1>SAMARRA</h1>
+  <p class="sub">填写你的信息</p>
+
+  <label>真实姓名</label>
+  <input id="realName" placeholder="填入白名单里的名字" />
+
+  <label>昵称</label>
+  <input id="nickname" placeholder="起个好记的昵称" />
+
+  <button onclick="doLogin()">进入</button>
+  <p class="msg" id="msg"></p>
+</div>
+
+<script>
+var SUPABASE_URL = 'https://djvsugbstenltenktpwv.supabase.co';
+var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqdnN1Z2JzdGVubHRlbmt0cHd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2OTI0MDcsImV4cCI6MjEwNzI2ODQwN30.XMBE7NCridZ34BG7LyRiHQRZP0SkVI209uQhqSgcIAs';
+
+if (typeof supabase === 'undefined') {
+  document.getElementById('msg').innerText = 'SDK 加载失败，请刷新';
+  throw new Error('SDK not loaded');
+}
+
+var client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// 已登录过，直接按身份跳
+try {
+  var saved = localStorage.getItem('samarra_user');
+  if (saved) {
+    var u = JSON.parse(saved);
+    if (u && u.realName && u.nickname) {
+      if (u.realName === '王轩201202062xt') {
+        location.href = 'admin.html';
+      } else {
+        location.href = 'index.html';
+      }
+    }
+  }
+} catch (e) {}
+
+function doLogin() {
+  var realName = document.getElementById('realName').value.trim();
+  var nickname = document.getElementById('nickname').value.trim();
+  var msgEl = document.getElementById('msg');
+
+  if (!realName) { msgEl.innerText = '请填写真实姓名'; return; }
+  if (!nickname) { msgEl.innerText = '请输入昵称'; return; }
+
+  msgEl.style.color = '#94a3b8';
+  msgEl.innerText = '正在验证...';
+
+  client.from('users').select('*').eq('real_name', realName).then(function (res) {
+    if (res.error) {
+      msgEl.style.color = '#ef4444';
+      msgEl.innerText = '验证失败，请重试';
+      return;
+    }
+    if (!res.data || res.data.length === 0) {
+      msgEl.style.color = '#ef4444';
+      msgEl.innerText = '不在白名单，请联系管理员';
+      return;
+    }
+
+    try {
+      localStorage.setItem('samarra_user', JSON.stringify({
+        realName: realName,
+        nickname: nickname
+      }));
+    } catch (e) {
+      msgEl.style.color = '#ef4444';
+      msgEl.innerText = '本地存储不可用';
+      return;
+    }
+
+    client.from('users').update({ nickname: nickname }).eq('real_name', realName).then(function () {
+      if (realName === '王轩201202062xt') {
+        location.href = 'admin.html';
+      } else {
+        location.href = 'index.html';
+      }
+    });
+  });
+}
+</script>
+</body>
+</html>
