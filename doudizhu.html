@@ -1,1 +1,593 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>SAMARRA · 斗地主</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  min-height: 100vh; background: #f5f7fb; color: #1e293b; padding: 12px;
+}
+.topbar {
+  display: flex; justify-content: space-between; align-items: center;
+  max-width: 560px; margin: 0 auto 12px;
+}
+.back {
+  color: #5b8cff; text-decoration: none; padding: 6px 12px;
+  border: 1px solid #dbe3f0; border-radius: 8px; background: #fff; font-size: 13px;
+}
+.status { font-size: 12px; color: #94a3b8; }
+.panel {
+  max-width: 560px; margin: 0 auto 12px; background: #fff;
+  border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.panel h2 { font-size: 16px; margin-bottom: 14px; color: #334155; }
+.panel input {
+  width: 100%; padding: 10px 12px; border: 1px solid #dbe3f0;
+  border-radius: 10px; font-size: 14px; outline: none; margin-bottom: 10px;
+}
+.panel button, .actions button, .call-btn {
+  width: 100%; padding: 10px 18px;
+  background: linear-gradient(90deg, #5b8cff, #8e6bff);
+  color: #fff; border: none; border-radius: 10px;
+  font-size: 14px; font-weight: 600; cursor: pointer; margin-bottom: 8px;
+}
+.panel button.secondary {
+  background: #fff; color: #5b8cff; border: 1px solid #dbe3f0;
+}
+.mode-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.mode-row button { flex: 1; margin-bottom: 0; }
+.mode-row button.active { background: linear-gradient(90deg, #5b8cff, #8e6bff); color: #fff; }
+.mode-row button.inactive { background: #fff; color: #5b8cff; border: 1px solid #dbe3f0; }
+.player-list { list-style: none; padding: 0; margin-top: 6px; }
+.player-list li {
+  padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0;
+  border-radius: 10px; margin-bottom: 8px; font-size: 14px; color: #334155;
+}
+.player-list li.empty { color: #cbd5e1; font-style: italic; }
+.player-list li.me { border-color: #5b8cff; background: #eff6ff; color: #1d4ed8; font-weight: 600; }
+.table {
+  max-width: 560px; margin: 0 auto 12px; background: #fff;
+  border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px;
+}
+.player-slot {
+  display: flex; justify-content: space-between;
+  padding: 8px 10px; border-radius: 8px; background: #f8fafc;
+  margin-bottom: 6px; font-size: 13px; color: #475569;
+}
+.player-slot.active { border: 2px solid #5b8cff; background: #eff6ff; }
+.player-slot.landlord { border-color: #dc2626; }
+.last-play { text-align: center; padding: 10px; color: #64748b; font-size: 13px; min-height: 40px; }
+.my-hand {
+  max-width: 560px; margin: 0 auto; background: #fff;
+  border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px;
+}
+.cards { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin: 8px 0; }
+.card {
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 36px; height: 52px; background: #fff; border: 1px solid #dbe3f0;
+  border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; user-select: none;
+}
+.card.selected { transform: translateY(-8px); border-color: #5b8cff; box-shadow: 0 4px 10px rgba(91,140,255,0.3); }
+.card.red { color: #dc2626; }
+.card.black { color: #1e293b; }
+.actions { display: flex; gap: 8px; justify-content: center; margin-top: 10px; }
+.actions button { flex: 1; margin-bottom: 0; }
+.actions .play { background: linear-gradient(90deg, #5b8cff, #8e6bff); color: #fff; }
+.actions .pass { background: #fff; color: #5b8cff; border: 1px solid #dbe3f0; }
+.multiplier { text-align: center; color: #dc2626; font-weight: 600; font-size: 13px; margin: 6px 0; }
+.calling-area {
+  max-width: 560px; margin: 0 auto 12px; background: #fff;
+  border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px;
+  text-align: center;
+}
+.calling-area h2 { font-size: 16px; margin-bottom: 14px; color: #334155; }
+.call-btns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.call-btns button { flex: 1; min-width: 70px; margin-bottom: 8px; }
+</style>
+</head>
+<body>
 
+<div class="topbar">
+  <a class="back" href="index.html">← 返回</a>
+  <span class="status" id="status">初始化</span>
+</div>
+
+<div class="panel" id="screen1">
+  <h2>输入昵称</h2>
+  <input id="nickname" placeholder="比如 小明" />
+  <button onclick="enterLobby()">进入</button>
+</div>
+
+<div class="panel" id="screen2" style="display:none;">
+  <h2>创建或加入房间</h2>
+  <div class="mode-row">
+    <button id="mode1" class="active" onclick="setMode(1)">一副牌（3人）</button>
+    <button id="mode2" class="inactive" onclick="setMode(2)">两副牌（4人）</button>
+  </div>
+  <input id="roomCode" placeholder="输入房间号，比如 666" />
+  <button onclick="createRoom()">创建房间</button>
+  <button class="secondary" onclick="joinRoom()">加入房间</button>
+</div>
+
+<div class="panel" id="screen3" style="display:none;">
+  <h2>房间：<span id="roomDisplay"></span></h2>
+  <ul class="player-list" id="playerList"></ul>
+  <button id="startBtn" style="display:none;" onclick="startGame()">开始游戏</button>
+</div>
+
+<div class="calling-area" id="screen4" style="display:none;">
+  <h2>叫地主 · 当前倍数 <span id="callMult">1</span></h2>
+  <div id="callInfo" style="margin-bottom:14px;color:#64748b;font-size:14px;"></div>
+  <div class="call-btns" id="callBtns"></div>
+</div>
+
+<div class="game-screen" id="screen5" style="display:none;">
+  <div class="table" id="tableArea"></div>
+  <div class="multiplier">当前倍数：×<span id="gameMult">1</span></div>
+  <div class="my-hand">
+    <div style="text-align:center;font-size:13px;color:#64748b;margin-bottom:6px;">
+      我的手牌（<span id="myCount">0</span>张）
+    </div>
+    <div class="cards" id="myCards"></div>
+    <div class="actions">
+      <button class="play" onclick="playCards()">出牌</button>
+      <button class="pass" onclick="passTurn()">不要</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var SUPABASE_URL = 'https://djvsugbstenltenktpwv.supabase.co';
+var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqdnN1Z2JzdGVubHRlbmt0cHd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2OTI0MDcsImV4cCI6MjEwNzI2ODQwN30.XMBE7NCridZ34BG7LyRiHQRZP0SkVI209uQhqSgcIAs';
+
+if (typeof supabase === 'undefined') {
+  document.getElementById('status').innerText = 'SDK 加载失败';
+  throw new Error('SDK not loaded');
+}
+
+var client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+var myName = '', myRoom = '', myIndex = -1;
+var deckCount = 1, playerCount = 3;
+var gameState = null;
+var selectedCards = [];
+
+var SUITS = ['♠','♥','♣','♦'];
+var RANK_NAMES = ['3','4','5','6','7','8','9','10','J','Q','K','A','2'];
+var RANK_WEIGHTS = {'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14,'2':15};
+
+function sleep(ms) { return new Promise(function(r){ setTimeout(r, ms); }); }
+
+function setMode(n) {
+  deckCount = n;
+  playerCount = n === 1 ? 3 : 4;
+  document.getElementById('mode1').className = (n === 1 ? 'active' : 'inactive');
+  document.getElementById('mode2').className = (n === 2 ? 'active' : 'inactive');
+}
+
+function createDeck() {
+  var deck = [];
+  for (var d = 0; d < deckCount; d++) {
+    for (var r = 0; r < RANK_NAMES.length; r++) {
+      var rank = RANK_NAMES[r];
+      for (var s = 0; s < SUITS.length; s++) {
+        deck.push({ suit: SUITS[s], rank: rank, weight: RANK_WEIGHTS[rank] });
+      }
+    }
+    deck.push({ suit: '', rank: '小王', weight: 16 });
+    deck.push({ suit: '', rank: '大王', weight: 17 });
+  }
+  return deck;
+}
+
+function shuffle(arr) {
+  for (var i = arr.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+  }
+  return arr;
+}
+
+function deal() {
+  var deck = shuffle(createDeck());
+  var perPlayer = Math.floor((deck.length - (playerCount === 3 ? 3 : 8)) / playerCount);
+  var hands = {};
+  for (var p = 0; p < playerCount; p++) hands[p] = [];
+  for (var i = 0; i < perPlayer * playerCount; i++) {
+    hands[i % playerCount].push(deck[i]);
+  }
+  var bottom = deck.slice(perPlayer * playerCount);
+  for (var k = 0; k < playerCount; k++) {
+    hands[k].sort(function(a,b){ return a.weight - b.weight; });
+  }
+  return { hands: hands, bottom: bottom };
+}
+
+function getCardType(cards) {
+  if (!cards || cards.length === 0) return null;
+  var n = cards.length;
+  var weights = cards.map(function(c){ return c.weight; }).sort(function(a,b){ return a-b; });
+  var countMap = {};
+  weights.forEach(function(w){ countMap[w] = (countMap[w]||0)+1; });
+  var keys = Object.keys(countMap).map(Number).sort(function(a,b){ return a-b; });
+  var counts = keys.map(function(k){ return { w: k, c: countMap[k] }; });
+  var countValues = counts.map(function(x){ return x.c; });
+
+  if (deckCount === 1 && n === 2 && countMap[16] === 1 && countMap[17] === 1) return { type: 'rocket', weight: 100 };
+  if (deckCount === 2 && n === 4 && countMap[16] === 2 && countMap[17] === 2) return { type: 'rocket', weight: 100 };
+  if (n === 1) return { type: 'single', weight: weights[0] };
+  if (n === 2 && counts.length === 1) return { type: 'pair', weight: weights[0] };
+  if (n === 3 && counts.length === 1) return { type: 'triple', weight: weights[0] };
+  if (counts.length === 1 && countMap[weights[0]] === n && n >= 4 && n <= 4 * deckCount) return { type: 'bomb', weight: weights[0], length: n };
+  if (n === 4 && counts.length === 2) { var t = counts.filter(function(x){ return x.c === 3; })[0]; if (t) return { type: 'triple_single', weight: t.w }; }
+  if (n === 5 && counts.length === 2) { var t2 = counts.filter(function(x){ return x.c === 3; })[0]; var p2 = counts.filter(function(x){ return x.c === 2; })[0]; if (t2 && p2) return { type: 'triple_pair', weight: t2.w }; }
+  if (n === 6 && counts.length === 3) { var f = counts.filter(function(x){ return x.c === 4; })[0]; if (f) { var rest= counts.filter(function(x){ return x.w !== f.w; }); if (rest.length === 2 && rest.every(function(x){ return x.c === 1; })) return { type: 'four_two_single', weight: f.w }; } }
+  if (n === 8 && counts.length === 3) { var f2 = counts.filter(function(x){ return x.c === 4; })[0]; if (f2) { var rest2 = counts.filter(function(x){ return x.w !== f2.w; }); if (rest2.length === 2 && rest2.every(function(x){ return x.c === 2; })) return { type: 'four_two_pair', weight: f2.w }; } }
+  if (n >= 5 && counts.length === n && keys[keys.length-1] <= 14) { var ok = true; for (var i = 1; i < keys.length; i++) if (keys[i] !== keys[i-1]+1) { ok = false; break; } if (ok) return { type: 'straight', weight: keys[0], length: n }; }
+  if (n >= 6 && n % 2 === 0 && counts.length === n/2 && countValues.every(function(c){ return c === 2; })) { if (keys[keys.length-1] <= 14) { var ok2 = true; for (var j = 1; j < keys.length; j++) if (keys[j] !== keys[j-1]+1) { ok2 = false; break; } if (ok2) return { type: 'straight_pair', weight: keys[0], length: n }; } }
+  if (n >= 6 && n % 3 === 0 && counts.length === n/3 && countValues.every(function(c){ return c === 3; })) { if (keys[keys.length-1] <= 14) { var ok3 = true; for (var k = 1; k < keys.length; k++) if (keys[k] !== keys[k-1]+1) { ok3 = false; break; } if (ok3) return { type: 'airplane', weight: keys[0], length: n }; } }
+  for (var m = 2; m <= 5; m++) { if (n === 4 * m) { var triples = counts.filter(function(x){ return x.c === 3; }).map(function(x){ return x.w; }).sort(function(a,b){ return a-b; }); if (triples.length === m) { var okS = true; for (var t = 1; t < triples.length; t++) if (triples[t] !== triples[t-1]+1) { okS = false; break; } if (okS && triples[triples.length-1] <= 14) { var restS = counts.filter(function(x){ return triples.indexOf(x.w) === -1; }); var restCnt = restS.reduce(function(s,x){ return s + x.c; }, 0); if (restCnt === m) return { type: 'airplane_single', weight: triples[0], length: n }; } } } }
+  for (var m2 = 2; m2 <= 4; m2++) { if (n === 5 * m2) { var triples2 = counts.filter(function(x){ return x.c === 3; }).map(function(x){ return x.w; }).sort(function(a,b){ return a-b; }); if (triples2.length === m2) { var okP = true; for (var t2 = 1; t2 < triples2.length; t2++) if (triples2[t2] !== triples2[t2-1]+1) { okP = false; break; } if (okP && triples2[triples2.length-1] <= 14) { var restP = counts.filter(function(x){ return triples2.indexOf(x.w) === -1; }); if (restP.length === m2 && restP.every(function(x){ return x.c === 2; })) return { type: 'airplane_pair', weight: triples2[0], length: n }; } } } }
+  return null;
+}
+
+function canBeat(current, previous) {
+  if (!current) return false;
+  if (!previous) return true;
+  if (current.type === 'rocket') return true;
+  if (previous.type === 'rocket') return false;
+  if (current.type === 'bomb' && previous.type !== 'bomb') return true;
+  if (current.type === 'bomb' && previous.type === 'bomb') { if (current.length !== previous.length) return current.length > previous.length; return current.weight > previous.weight; }
+  if (previous.type === 'bomb') return false;
+  if (current.type !== previous.type) return false;
+  if ((current.length || 0) !== (previous.length || 0)) return false;
+  return current.weight > previous.weight;
+}
+
+function typeName(t) {
+  var names = { single:'单张', pair:'对子', triple:'三张', triple_single:'三带一', triple_pair:'三带对', straight:'顺子', straight_pair:'连对', airplane:'飞机', airplane_single:'飞机带单', airplane_pair:'飞机带对', four_two_single:'四带二', four_two_pair:'四带两对', bomb:'炸弹', rocket:'火箭' };
+  return names[t] || t;
+}
+
+// ========== 屏1 ==========
+function enterLobby() {
+  var n = document.getElementById('nickname').value.trim();
+  if (!n) { alert('请输入昵称'); return; }
+  myName = n;
+  document.getElementById('status').innerText = '昵称：' + myName;
+  document.getElementById('screen1').style.display = 'none';
+  document.getElementById('screen2').style.display = 'block';
+}
+
+// ========== 屏2 ==========
+function createRoom() {
+  var code = document.getElementById('roomCode').value.trim();
+  if (!code) { alert('请输入房间号'); return; }
+  document.getElementById('status').innerText = '创建中...';
+
+  client.from('rooms').select('*').eq('room_code', code).then(function (res) {
+    if (res.data && res.data.length > 0) { alert('房间号已存在'); return; }
+    client.from('rooms').insert({
+      room_code: code, players: [myName], status: 'waiting', game_state: { deckCount: deckCount }
+    }).then(function (ins) {
+      if (ins.error) { document.getElementById('status').innerText = '创建失败：' + ins.error.message; return; }
+      myRoom = code;
+      enterRoom();
+    });
+  });
+}
+
+function joinRoom() {
+  var code = document.getElementById('roomCode').value.trim();
+  if (!code) { alert('请输入房间号'); return; }
+  document.getElementById('status').innerText = '加入中...';
+client.from('rooms').select('*').eq('room_code', code).then(function (res) {
+    if (res.error || !res.data || res.data.length === 0) { alert('房间不存在'); return; }
+    var room = res.data[0];
+    var players = room.players || [];
+    var dc = (room.game_state && room.game_state.deckCount) || 1;
+    var pc = dc === 1 ? 3 : 4;
+    if (players.indexOf(myName) !== -1) { deckCount = dc; playerCount = pc; myRoom = code; enterRoom(); return; }
+    if (players.length >= pc) { alert('房间已满'); return; }
+    players.push(myName);
+    client.from('rooms').update({ players: players }).eq('room_code', code).then(function (upd) {
+      if (upd.error) { document.getElementById('status').innerText = '加入失败'; return; }
+      deckCount = dc; playerCount = pc; myRoom = code;
+      enterRoom();
+    });
+  });
+}
+
+function enterRoom() {
+  document.getElementById('screen2').style.display = 'none';
+  document.getElementById('screen3').style.display = 'block';
+  document.getElementById('roomDisplay').innerText = myRoom;
+  document.getElementById('status').innerText = '已进入房间';
+  refreshRoom();
+}
+
+// ========== 房间刷新：严格串行 ==========
+var refreshing = false;
+function refreshRoom() {
+  if (!myRoom) return;
+  if (refreshing) return;
+  refreshing = true;
+
+  client.from('rooms').select('*').eq('room_code', myRoom).then(function (res) {
+    if (!res.error && res.data && res.data.length > 0) {
+      var room = res.data[0];
+      var players = room.players || [];
+      deckCount = (room.game_state && room.game_state.deckCount) || 1;
+      playerCount = deckCount === 1 ? 3 : 4;
+      renderPlayers(players);
+
+      var gs = room.game_state || {};
+      var phase = gs.phase;
+
+      if (phase === 'calling') {
+        renderCalling(gs, players);
+      } else if (phase === 'playing' || phase === 'finished') {
+        renderGame(gs, players);
+      } else {
+        document.getElementById('screen3').style.display = 'block';
+        document.getElementById('screen4').style.display = 'none';
+        document.getElementById('screen5').style.display = 'none';
+        document.getElementById('startBtn').style.display = players.length === playerCount ? 'block' : 'none';
+      }
+    }
+    refreshing = false;
+  });
+}
+
+function renderPlayers(players) {
+  var listEl = document.getElementById('playerList');
+  listEl.innerHTML = '';
+  for (var i = 0; i < playerCount; i++) {
+    var li = document.createElement('li');
+    if (players[i]) {
+      li.innerText = players[i] + (players[i] === myName ? '（我）' : '');
+      if (players[i] === myName) li.className = 'me';
+    } else {
+      li.innerText = '等待玩家 ' + (i + 1);
+      li.className = 'empty';
+    }
+    listEl.appendChild(li);
+  }
+}
+
+// ========== 开始游戏：先发牌，再更新 ==========
+function startGame() {
+  document.getElementById('status').innerText = '发牌中...';
+  var dealt = deal();
+  var gs = {
+    deckCount: deckCount, hands: dealt.hands, bottom: dealt.bottom,
+    phase: 'calling', callIndex: 0, called: {}, highestCall: 0, highestCaller: -1,
+    landlord: -1, multiplier: 1, turn: -1, last_play: null, pass_count: 0, winner: -1
+  };
+  client.from('rooms').update({ status: 'calling', game_state: gs }).eq('room_code', myRoom).then(function (res) {
+    if (res.error) { document.getElementById('status').innerText = '开始失败：' + res.error.message; return; }
+    document.getElementById('status').innerText = '等待叫地主';
+  });
+}
+
+// ========== 叫地主 ==========
+function renderCalling(gs, players) {
+  document.getElementById('screen3').style.display = 'none';
+  document.getElementById('screen4').style.display = 'block';
+  document.getElementById('screen5').style.display = 'none';
+  document.getElementById('callMult').innerText = gs.multiplier || 1;
+
+  var callInfo = document.getElementById('callInfo');
+  var callBtns = document.getElementById('callBtns');
+  callBtns.innerHTML = '';
+
+  if (gs.landlord >= 0) { callInfo.innerText = '地主已确定，等待进入游戏...'; return; }
+
+  var idx = gs.callIndex;
+  var who = players[idx] || ('玩家' + (idx + 1));
+  callInfo.innerText = '当前轮到：' + who + '（最高分：' + gs.highestCall + '）';
+
+  if (players.indexOf(myName) === idx) {
+    [1,2,3].forEach(function (score) {
+      if (score <= gs.highestCall) return;
+      var b = document.createElement('button');
+      b.className = 'call-btn';
+      b.innerText = '叫 ' + score + ' 分';
+      b.onclick = function () { callScore(score); };
+      callBtns.appendChild(b);
+    });
+    var bPass = document.createElement('button');
+    bPass.className = 'call-btn secondary';
+    bPass.style.background = '#fff'; bPass.style.color = '#5b8cff'; bPass.style.border = '1px solid #dbe3f0';
+    bPass.innerText = '不叫';
+    bPass.onclick = function () { callScore(0); };
+    callBtns.appendChild(bPass);
+  } else {
+    callInfo.innerText += '（等待对方叫分）';
+  }
+}
+
+function callScore(score) {
+  document.getElementById('status').innerText = '提交叫分中...';
+  client.from('rooms').select('*').eq('room_code', myRoom).then(function (res) {
+    var room = res.data[0];
+    var gs = room.game_state;
+    var players = room.players;
+    var idx = gs.callIndex;
+
+    gs.called[idx] = score;
+    if (score > gs.highestCall) { gs.highestCall = score; gs.highestCaller = idx; }
+
+    var finishedCalling = (gs.highestCall === 3);
+
+    if (!finishedCalling) {
+      var allCalled = true;
+      for (var i = 0; i < playerCount; i++) { if (gs.called[i] === undefined) { allCalled = false; break; } }
+      if (allCalled) {
+        if (gs.highestCall === 0) {
+          delete gs.called; gs.callIndex = 0; gs.highestCall = 0; gs.highestCaller = -1;
+          client.from('rooms').update({ game_state: gs }).eq('room_code', myRoom).then(function(){ document.getElementById('status').innerText = '全部不叫，重新发牌'; refreshRoom(); });
+          return;
+        }
+        finishedCalling = true;
+      }
+    }
+
+    if (finishedCalling) {
+      var landlord = gs.highestCaller;
+      gs.landlord = landlord; gs.multiplier = gs.highestCall; gs.turn = landlord;
+      var landlordHand = gs.hands[landlord].concat(gs.bottom);
+      landlordHand.sort(function(a,b){ return a.weight - b.weight; });
+      gs.hands[landlord] = landlordHand;
+      gs.phase = 'playing';
+    } else {
+      gs.callIndex = (idx + 1) % playerCount;
+    }
+
+    client.from('rooms').update({ game_state: gs }).eq('room_code', myRoom).then(function(){
+      refreshRoom();
+    });
+  });
+}
+
+// ========== 游戏界面 ==========
+function renderGame(gs, players) {
+  document.getElementById('screen3').style.display = 'none';
+  document.getElementById('screen4').style.display = 'none';
+  document.getElementById('screen5').style.display = 'block';
+  gameState = gs;
+  myIndex = players.indexOf(myName);
+
+  if (gs.phase === 'finished') {
+    document.getElementById('status').innerText = (players[gs.winner] || '?') + ' 获胜！倍数 ' + gs.multiplier;
+  } else if (gs.turn === myIndex) {
+    document.getElementById('status').innerText = '轮到你出牌';
+  } else {
+    document.getElementById('status').innerText = '等待其他玩家...';
+  }
+
+  var tableArea = document.getElementById('tableArea');
+  tableArea.innerHTML = '';
+  for (var i = 0; i < playerCount; i++) {
+    if (i === myIndex) continue;
+    var div = document.createElement('div');
+    div.className = 'player-slot';
+    if (gs.turn === i) div.className += ' active';
+    if (gs.landlord === i) div.className += ' landlord';
+    var name = players[i] || ('玩家' + (i + 1));
+    var tag = gs.landlord === i ? ' 地主' : ' 农民';
+    div.innerHTML = '<span>' + name + tag + '</span><span>剩 ' + (gs.hands[i] || []).length + ' 张</span>';
+    tableArea.appendChild(div);
+  }
+
+  var lastDiv = document.createElement('div');
+  lastDiv.className = 'last-play';
+  if (gs.last_play) {
+    var lp = gs.last_play;
+    var lpName = players[lp.player] || ('玩家' + (lp.player + 1));
+    var cardStr = lp.cards.map(function(c){ return c.rank + c.suit; }).join(' ');
+    lastDiv.innerText = lpName + ' 出了（' + typeName(lp.type.type) + '）：' + cardStr;
+  } else {
+    lastDiv.innerText = '等待出牌';
+  }
+  tableArea.appendChild(lastDiv);
+  document.getElementById('gameMult').innerText = gs.multiplier || 1;
+  var myHand = gs.hands[myIndex] || [];
+  document.getElementById('myCount').innerText = myHand.length;
+  renderMyHand(myHand);
+}
+
+function renderMyHand(hand) {
+  var el = document.getElementById('myCards');
+  el.innerHTML = '';
+  hand.forEach(function(card, i) {
+    var div = document.createElement('div');
+    var isRed = card.suit === '♥' || card.suit === '♦';
+    div.className = 'card ' + (isRed ? 'red' : 'black');
+    if (selectedCards.indexOf(i) !== -1) div.className += ' selected';
+    div.innerHTML = '<div>' + card.rank + '</div><div class="suit">' + card.suit + '</div>';
+    div.onclick = (function(idx){ return function(){ toggleSelect(idx); }; })(i);
+    el.appendChild(div);
+  });
+}
+
+function toggleSelect(i) {
+  var idx = selectedCards.indexOf(i);
+  if (idx === -1) selectedCards.push(i); else selectedCards.splice(idx, 1);
+  renderMyHand(gameState.hands[myIndex]);
+}
+
+// ========== 出牌：严格串行 ==========
+function playCards() {
+  if (!gameState) return;
+  if (gameState.turn !== myIndex) { document.getElementById('status').innerText = '还没轮到你'; return; }
+  if (selectedCards.length === 0) { document.getElementById('status').innerText = '请选择要出的牌'; return; }
+
+  var hand = gameState.hands[myIndex];
+  var cards = selectedCards.map(function(i){ return hand[i]; });
+  var type = getCardType(cards);
+  if (!type) { document.getElementById('status').innerText = '牌型不合法'; return; }
+
+  var lastPlay = gameState.last_play;
+  if (lastPlay && lastPlay.player !== myIndex) {
+    if (!canBeat(type, lastPlay.type)) { document.getElementById('status').innerText = '压不过上一手'; return; }
+  }
+  var newHand = hand.filter(function(_, i){ return selectedCards.indexOf(i) === -1; });
+  var newHands = JSON.parse(JSON.stringify(gameState.hands));
+  newHands[myIndex] = newHand;
+
+  var newMult = gameState.multiplier || 1;
+  if (type.type === 'bomb' || type.type === 'rocket') newMult = newMult * 2;
+
+  var nextTurn = (myIndex + 1) % playerCount;
+  var newState = {
+    deckCount: gameState.deckCount, hands: newHands, bottom: gameState.bottom,
+    landlord: gameState.landlord, multiplier: newMult, turn: nextTurn,
+    phase: newHand.length === 0 ? 'finished' : 'playing',
+    last_play: { player: myIndex, cards: cards, type: type },
+    pass_count: 0, winner: newHand.length === 0 ? myIndex : -1,
+    callIndex: gameState.callIndex, called: gameState.called,
+    highestCall: gameState.highestCall, highestCaller: gameState.highestCaller
+  };
+
+  selectedCards = [];
+  document.getElementById('status').innerText = '出牌中...';
+
+  client.from('rooms').update({ game_state: newState, status: newState.phase === 'finished' ? 'finished' : 'playing' }).eq('room_code', myRoom).then(function (res) {
+    if (res.error) { document.getElementById('status').innerText = '出牌失败：' + res.error.message; return; }
+    refreshRoom();
+  });
+}
+
+// ========== 过牌：严格串行 ==========
+function passTurn() {
+  if (!gameState) return;
+  if (gameState.turn !== myIndex) { document.getElementById('status').innerText = '还没轮到你'; return; }
+  if (!gameState.last_play) { document.getElementById('status').innerText = '你先手，必须出牌'; return; }
+
+  var newState = JSON.parse(JSON.stringify(gameState));
+  newState.turn = (myIndex + 1) % playerCount;
+  newState.pass_count = (newState.pass_count || 0) + 1;
+  if (newState.pass_count >= playerCount - 1) { newState.last_play = null; newState.pass_count = 0; }
+
+  selectedCards = [];
+  document.getElementById('status').innerText = '提交中...';
+
+  client.from('rooms').update({ game_state: newState }).eq('room_code', myRoom).then(function (res) {
+    if (res.error) { document.getElementById('status').innerText = '操作失败：' + res.error.message; return; }
+    refreshRoom();
+  });
+}
+
+// ========== 轮询：严格串行，上一次没完不开始下一次 ==========
+setInterval(function () {
+  if (!refreshing) refreshRoom();
+}, 2000);
+
+</script>
+</body>
+</html>
