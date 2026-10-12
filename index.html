@@ -2,6 +2,17 @@
 <html>
 <head>
   <meta charset="UTF-8">
+  <script>
+    // 没登录就跳登录页
+    try {
+      var u = localStorage.getItem('samarra_user');
+      if (!u) {
+        location.replace('login.html');
+      }
+    } catch (e) {
+      location.replace('login.html');
+    }
+  </script>
   <title>SAMARRA</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
@@ -55,11 +66,9 @@
       align-items: center;
       justify-content: center;
       position: relative;
-
       background: #fff;
       border: 1px solid #ebe5dc;
       border-radius: 8px;
-
       cursor: pointer;
       transition: border-color 0.3s, box-shadow 0.3s, transform 0.2s;
       box-shadow: 0 1px 4px rgba(0,0,0,0.03);
