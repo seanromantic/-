@@ -96,14 +96,14 @@
 
   <div class="topbar">
     <a class="back" href="index.html">← 返回</a>
-    <span class="status" id="status">就绪</span>
+    <span class="status" id="status">初始化</span>
   </div>
 
   <div class="chat-box">
     <ul id="messages"></ul>
   </div>
   <div class="input-bar">
-    <input id="msg" placeholder="说点什么..." />
+    <input id="msg" placeholder="说点什么..." onkeypress="if(event.key==='Enter'){sendMsg();}" />
     <button onclick="sendMsg()">发送</button>
   </div>
 
@@ -116,59 +116,74 @@
     var SUPABASE_URL = 'https://djvsugbstenltenktpwv.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqdnN1Z2JzdGVubHRlbmt0cHd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2OTI0MDcsImV4cCI6MjEwNzI2ODQwN30.XMBE7NCridZ34BG7LyRiHQRZP0SkVI209uQhqSgcIAs';
 
-    var myName = localStorage.getItem('myName');
-    if (!myName) {
+    var myName = null;
+    try {
+      myName = localStorage.getItem('myName');
+      if (!myName) {
+        myName = '玩家' + Math.floor(Math.random() * 9000 + 1000);
+        localStorage.setItem('myName', myName);
+      }
+    } catch (e) {
       myName = '玩家' + Math.floor(Math.random() * 9000 + 1000);
-      localStorage.setItem('myName', myName);
     }
 
     var client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     var channel = null;
 
-    // ---------- 第一步：页面加载完，先读历史 ----------
     function step1_loadHistory() {
-      document.getElementById('status').innerText = '读历史...';
+      document.getElementById('status').innerText = '正在加载历史记录';
       client.from('messages').select('*').eq('room', 'public')
         .order('created_at', { ascending: true }).limit(100)
         .then(function (res) {
-          if (res.data) res.data.forEach(function (m) { addMessage(m.name, m.text); });
-          // 历史读完，再进第二步
+          if (res.error) {
+            document.getElementById('status').innerText = '历史记录加载失败：' + res.error.message;
+            return;
+          }
+          if (res.data && res.data.length > 0) {
+            res.data.forEach(function (m) {
+              var isMine = (m.name === myName);
+              addMessage(m.name || '匿名', m.text || '', isMine);
+            });
+          }
+          document.getElementById('status').innerText = '已加载 ' + (res.data ? res.data.length : 0) + ' 条历史记录';
           step2_connect();
+        })
+        .catch(function (e) {
+          document.getElementById('status').innerText = '历史记录加载异常：' + e.message;
         });
     }
 
-    // ---------- 第二步：连频道 ----------
     function step2_connect() {
-      document.getElementById('status').innerText = '连接中...';
+      document.getElementById('status').innerText = '正在建立实时连接';
       channel = client.channel('room:public', {
-        config: { broadcast: { self: true, ack: true } }
+        config: { broadcast: { self: false, ack: true } }
       });
 
       channel.subscribe(function (status, err) {
         if (status === 'SUBSCRIBED') {
-          document.getElementById('status').innerText = '已连接';
-          // 连接成功，再进第三步
+          document.getElementById('status').innerText = '实时连接已建立';
           step3_bindEvents();
         } else if (status === 'CHANNEL_ERROR') {
-          document.getElementById('status').innerText = '订阅被拒绝';
-        } else if (status === 'TIMED_OUT') {
-          document.getElementById('status').innerText = '连接超时';
+          document.getElementById('status').innerText = '实时连接被拒绝';
+      } else if (status === 'TIMED_OUT') {
+          document.getElementById('status').innerText = '实时连接超时';
         } else {
-          document.getElementById('status').innerText = '状态：' + status;
+          document.getElementById('status').innerText = '连接状态：' + status;
         }
       });
     }
 
-    // ---------- 第三步：绑定广播事件 ----------
     function step3_bindEvents() {
       channel.on('broadcast', { event: 'chat' }, function (payload) {
-        addMessage(payload.payload.name, payload.payload.text);
+        addMessage(payload.payload.name, payload.payload.text, false);
       });
     }
 
-    function addMessage(name, text) {
+    function addMessage(name, text, isMine) {
+      if (!text) return;
       var li = document.createElement('li');
-      li.innerHTML = '<span class="sender">' + name + '：</span>' + text;
+      var displayName = isMine ? name + '（我）' : name;
+      li.innerHTML = '<span class="sender">' + displayName + '：</span>' + text;
       document.getElementById('messages').appendChild(li);
       var box = document.getElementById('messages');
       box.scrollTop = box.scrollHeight;
@@ -177,17 +192,33 @@
     function sendMsg() {
       var text = document.getElementById('msg').value;
       if (!text || !channel) return;
-      addMessage(myName + '（我）', text);
-      client.from('messages').insert({ name: myName, text: text, room: 'public' });
-      channel.send({
-        type: 'broadcast',
-        event: 'chat',
-        payload: { name: myName, text: text }
+
+      document.getElementById('status').innerText = '正在保存消息';
+
+      client.from('messages').insert({
+        name: myName,
+        text: text,
+        room: 'public'
+      }).then(function (res) {
+        if (res.error) {
+          document.getElementById('status').innerText = '消息持久化失败：' + res.error.message;
+          return;
+        }
+
+        document.getElementById('status').innerText = '实时连接已建立';
+
+        channel.send({
+          type: 'broadcast',
+          event: 'chat',
+          payload: { name: myName, text: text }
+        });
+
+        addMessage(myName, text, true);
+
+        document.getElementById('msg').value = '';
       });
-      document.getElementById('msg').value = '';
     }
 
-    // ---------- 启动 ----------
     window.onload = function () {
       step1_loadHistory();
     };
