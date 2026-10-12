@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>SAMARRA · 管理</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  min-height: 100vh; background: #faf8f5; color: #1e293b; padding: 24px 16px;
+  display: flex; flex-direction: column; align-items: center;
+}
+h1 {
+  font-size: 22px; font-weight: 800; letter-spacing: 3px;
+  background: linear-gradient(90deg, #5b8cff, #8e6bff);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  margin-bottom: 6px;
+}
+.sub { font-size: 12px; color: #94a3b8; margin-bottom: 20px; }
+.panel {
+  width: 100%; max-width: 420px; background: #fff;
+  border: 1px solid #ebe5dc; border-radius: 14px;
+  padding: 16px; margin-bottom: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.panel h2 {
+  font-size: 14px; color: #334155; margin-bottom: 12px;
+}
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 8px 6px; text-align: left; border-bottom: 1px solid #f1f0ee; }
+th { color: #78716c; font-weight: 600; }
+td { color: #334155; }
+.empty { color: #cbd5e1; font-style: italic; text-align: center; padding: 12px; }
+.btn {
+  width: 100%; max-width: 420px; padding: 12px;
+  background: linear-gradient(90deg, #5b8cff, #8e6bff);
+  color: #fff; border: none; border-radius: 10px;
+  font-size: 15px; font-weight: 600; cursor: pointer;
+}
+.btn:hover { opacity: 0.9; }
+</style>
+</head>
+<body>
+
+<h1>SAMARRA · 管理通道</h1>
+<p class="sub">欢迎回来，王轩</p>
+
+<div class="panel">
+  <h2>白名单（真实姓名 ↔ 昵称）</h2>
+  <div id="listArea"><p class="empty">加载中...</p></div>
+</div>
+
+<button class="btn" onclick="location.href='index.html'">进入主页</button>
+
+<script>
+var SUPABASE_URL = 'https://djvsugbstenltenktpwv.supabase.co';
+var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqdnN1Z2JzdGVubHRlbmt0cHd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2OTI0MDcsImV4cCI6MjEwNzI2ODQwN30.XMBE7NCridZ34BG7LyRiHQRZP0SkVI209uQhqSgcIAs';
+
+if (typeof supabase === 'undefined') {
+  document.getElementById('listArea').innerHTML = '<p class="empty">SDK 加载失败</p>';
+  throw new Error('SDK not loaded');
+}
+
+// 检查是不是王轩本人
+try {
+  var saved = localStorage.getItem('samarra_user');
+  if (!saved) { location.replace('login.html'); }
+  var u = JSON.parse(saved);
+  if (!u || u.realName !== '王轩201202062xt') {
+    location.replace('index.html');
+  }
+} catch (e) {
+  location.replace('login.html');
+}
+
+var client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+client.from('users').select('*').order('real_name', { ascending: true }).then(function (res) {
+  var area = document.getElementById('listArea');
+  if (res.error || !res.data || res.data.length === 0) {
+    area.innerHTML = '<p class="empty">白名单为空</p>';
+    return;
+  }
+  var html = '<table><tr><th>真实姓名</th><th>昵称</th></tr>';
+  res.data.forEach(function (u) {
+    html += '<tr><td>' + u.real_name + '</td><td>' + (u.nickname || '未设置') + '</td></tr>';
+  });
+  html += '</table>';
+  area.innerHTML = html;
+});
+</script>
+</body>
+</html>
