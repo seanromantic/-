@@ -1,0 +1,6 @@
+// 全局配置
+const CONFIG = {
+  SUPABASE_URL: 'https://djvsugbstenltenktpwv.supabase.co',
+  SUPABASE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqdnN1Z2JzdGVubHRlbmt0cHd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2OTI0MDcsImV4cCI6MjEwNzI2ODQwN30.XMBE7NCridZ34BG7LyRiHQRZP0SkVI209uQhqSgcIAs',
+  ADMIN_NAME: '王轩201202062xt'
+};
