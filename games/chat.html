@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>SAMARRA · 聊天室</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <link rel="stylesheet" href="../shared/common.css">
+  <style>
+    body { padding-top: 70px; }
+    .topbar {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+    }
+    .back-btn {
+      font-size: 12px;
+      color: #64748b;
+      text-decoration: none;
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .back-btn:hover { background: #f1f5f9; }
+    .status { font-size: 12px; color: #94a3b8; }
+
+    .chat-box {
+      width: 100%;
+      max-width: 420px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      min-height: 320px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    #messages {
+      list-style: none;
+      padding: 0;
+      flex: 1;
+      overflow-y: auto;
+      margin-bottom: 12px;
+      max-height: 400px;
+    }
+    #messages li {
+      margin-bottom: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+      word-break: break-word;
+      color: #334155;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    #messages li .sender { color: #5b8cff; font-weight: 600; margin-right: 4px; }
+    .input-bar {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      max-width: 420px;
+    }
+    .input-bar input {
+      flex: 1;
+      padding: 10px 16px;
+      border: 1px solid #e2e8f0;
+      border-radius: 999px;
+      font-size: 14px;
+      outline: none;
+    }
+    .input-bar input:focus { border-color: #5b8cff; }
+    .input-bar button {
+      padding: 10px 20px;
+      border-radius: 999px;
+      border: none;
+      background: linear-gradient(90deg, #5b8cff, #8e6bff);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .input-bar button:active { transform: scale(0.97); }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <a class="back-btn" href="../index.html">← 桌游列表</a>
+    <span class="status" id="status">初始化</span>
+  </div>
+
+  <div class="chat-box anim-up">
+    <ul id="messages"></ul>
+  </div>
+
+  <div class="input-bar anim-up anim-delay-1">
+    <input id="msg" placeholder="说点什么..." />
+    <button onclick="sendMsg()">发送</button>
+  </div>
+
+  <script src="../shared/config.js"></script>
+  <script src="../shared/user.js"></script>
+  <script>
+    if (typeof supabase === 'undefined') {
+      document.getElementById('status').innerText = 'SDK 加载失败';
+      throw new Error('SDK not loaded');
+    }
+
+    // 没登录就跳登录页
+    if (!User.isLoggedIn()) location.replace('../login.html');
+
+    var myName = User.getNickname();
+    var client = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
+    var channel = null;
+
+    function step1_loadHistory() {
+      document.getElementById('status').innerText = '加载历史记录';
+      client.from('messages').select('*').eq('room', 'public')
+        .order('created_at', { ascending: true }).limit(100)
+        .then(function (res) {
+          if (res.error) {
+            document.getElementById('status').innerText = '历史加载失败';
+            return;
+          }
+          if (res.data && res.data.length > 0) {
+            res.data.forEach(function (m) {
+              addMessage(m.name || '匿名', m.text || '');
+            });
+          }
+          document.getElementById('status').innerText = '已加载 ' + (res.data ? res.data.length : 0) + ' 条';
+          step2_connect();
+        });
+    }function step2_connect() {
+      document.getElementById('status').innerText = '建立实时连接';
+      channel = client.channel('room:public', {
+        config: { broadcast: { self: false, ack: true } }
+      });
+      channel.subscribe(function (status) {
+        if (status === 'SUBSCRIBED') {
+          document.getElementById('status').innerText = '已连接';
+          step3_bindEvents();
+        } else if (status === 'CHANNEL_ERROR') {
+          document.getElementById('status').innerText = '连接被拒绝';
+        } else if (status === 'TIMED_OUT') {
+          document.getElementById('status').innerText = '连接超时';
+        }
+      });
+    }
+
+    function step3_bindEvents() {
+      channel.on('broadcast', { event: 'chat' }, function (payload) {
+        addMessage(payload.payload.name, payload.payload.text);
+      });
+    }
+
+    function addMessage(name, text) {
+      if (!text) return;
+      var li = document.createElement('li');
+      li.innerHTML = '<span><span class="sender">' + name + '：</span>' + text + '</span>';
+      document.getElementById('messages').appendChild(li);
+      var box = document.getElementById('messages').appendChild(li);
+      var box = document.getElementById('messages');
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function sendMsg() {
+      var text = document.getElementById('msg').value;
+      if (!text || !channel) return;
+      addMessage(myName + '（我）', text);
+      client.from('messages').insert({ name: myName, text: text, room: 'public' });
+      channel.send({
+        type: 'broadcast',
+        event: 'chat',
+        payload: { name: myName, text: text }
+      });
+      document.getElementById('msg').value = '';
+    }
+
+    step1_loadHistory();
+  </script>
+</body>
+</html>
