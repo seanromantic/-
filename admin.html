@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>SAMARRA · 管理</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<link rel="stylesheet" href="shared/common.css">
+<style>
+  h1 {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #334155;
+    margin-top: 20px;
+    margin-bottom: 6px;
+  }
+  .sub { font-size: 12px; color: #94a3b8; margin-bottom: 20px; }
+  .panel {
+    width: 100%;
+    max-width: 420px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  }
+  .panel h2 { font-size: 14px; color: #334155; margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 8px 6px; text-align: left; border-bottom: 1px solid #f1f0ee; }
+  th { color: #78716c; font-weight: 600; }
+  td { color: #334155; }
+  .empty { color: #cbd5e1; font-style: italic; text-align: center; padding: 12px; }
+</style>
+</head>
+<body>
+
+<h1 class="anim-down">管理通道</h1>
+<p class="sub">欢迎回来，王轩</p>
+
+<div class="panel anim-up anim-delay-1">
+  <h2>白名单（真实姓名 ↔ 昵称）</h2>
+  <div id="listArea"><p class="empty">加载中...</p></div>
+</div>
+
+<button class="btn-pill btn-primary anim-up anim-delay-2" style="width:100%;max-width:420px;" onclick="location.href='index.html'">进入主页</button>
+<button class="btn-pill btn-secondary anim-up anim-delay-3" style="width:100%;max-width:420px;margin-top:10px;" onclick="User.logout()">退出登录</button>
+
+<script src="shared/config.js"></script>
+<script src="shared/user.js"></script>
+<script>
+if (typeof supabase === 'undefined') {
+  document.getElementById('listArea').innerHTML = '<p class="empty">SDK 加载失败</p>';
+  throw new Error('SDK not loaded');
+}
+
+// 只有王轩能进
+if (!User.isLoggedIn()) { location.replace('login.html'); }
+if (!User.isAdmin()) { location.replace('index.html'); }
+
+var client = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
+
+client.from('users').select('*').order('real_name', { ascending: true }).then(function (res) {
+  var area = document.getElementById('listArea');
+  if (res.error || !res.data || res.data.length === 0) {
+    area.innerHTML = '<p class="empty">白名单为空</p>';
+    return;
+  }
+  var html = '<table><tr><th>真实姓名</th><th>昵称</th></tr>';
+  res.data.forEach(function (u) {
+    html += '<tr><td>' + u.real_name + '</td><td>' + (u.nickname || '未设置') + '</td></tr>';
+  });
+  html += '</table>';
+  area.innerHTML = html;
+});
+</script>
+</body>
+</html>
