@@ -43,7 +43,7 @@
 
   <div class="top-left">
     <div id="myAvatar"></div>
-    <span class="nickname" id="myNickname">未登录</span>
+    <span class="nickname" id="myNickname">加载中...</span>
   </div>
 
   <div class="top-right">
@@ -91,37 +91,37 @@
   <script src="shared/games.js"></script>
   <script src="shared/ui.js"></script>
   <script>
-    setTimeout(function () {
+    // 等页面完全加载完
+    window.onload = function() {
       // 1. 检查登录
-      try {
-        if (!localStorage.getItem('samarra_user')) {
-          location.replace('login.html');
-          return;
-        }
-      } catch (e) {
+      if (!User.isLoggedIn()) {
         location.replace('login.html');
         return;
       }
 
       // 2. 渲染用户信息
-      if (User.isLoggedIn()) {
-        UI.renderAvatar(document.getElementById('myAvatar'), 'sm');
-        document.getElementById('myNickname').innerText = User.getNickname();
+      UI.renderAvatar(document.getElementById('myAvatar'), 'sm');
+      document.getElementById('myNickname').innerText = User.getNickname();
 
-        if (User.isAdmin()) {
-          document.getElementById('adminLink').style.display = 'inline-block';
-        }
-
-        User.checkDailyLogin();
+      if (User.isAdmin()) {
+        document.getElementById('adminLink').style.display = 'inline-block';
       }
+      User.checkDailyLogin();
 
       // 3. 渲染游戏列表
       var listEl = document.getElementById('gameList');
       listEl.innerHTML = '';
+      
+      // 如果你在 games.js 里面没有写 GAMES，这里就防崩
+      if (typeof GAMES === 'undefined') {
+        listEl.innerHTML = '<p style="text-align:center;color:#ef4444;">GAMES 未定义，请检查 games.js</p>';
+        return;
+      }
+
       GAMES.forEach(function (g, i) {
         listEl.appendChild(UI.renderGameCard(g, i));
       });
-    }, 300);
+    };
   </script>
 </body>
 </html>
