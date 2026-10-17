@@ -25,7 +25,8 @@
     }
     .top-right a:hover { background: #eff6ff; }
     .top-right .admin-link { display: none; }
-    header { text-align: center; margin-top: 40px; margin-bottom: 30px; }
+    
+    header { text-align: center; margin-top: 60px; margin-bottom: 30px; }
     header .logo-row {
       display: flex; align-items: center; justify-content: center; gap: 10px;
     }
@@ -33,9 +34,32 @@
       font-size: 30px; font-weight: 800; letter-spacing: 3px; color: #334155;
     }
     header p { font-size: 12px; color: #94a3b8; margin-top: 8px; }
+    
+    /* 游戏列表容器 */
     .game-list {
       display: flex; flex-direction: column; gap: 12px;
-      width: 100%; max-width: 420px;
+      width: 100%; max-width: 420px; margin: 0 auto;
+    }
+    
+    /* 直接在这里写死游戏卡片的样式，保证绝对能显示 */
+    .game-card {
+      display: flex; align-items: center; gap: 14px;
+      background: #fff; border: 1px solid #e2e8f0;
+      border-radius: 999px; padding: 14px 24px;
+      cursor: pointer; transition: 0.2s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .game-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(91,140,255,0.15);
+      border-color: #c7d2fe;
+    }
+    .game-card .hex { font-size: 22px; line-height: 1; }
+    .game-card .label {
+      font-size: 15px; font-weight: 600; color: #1e293b;
+    }
+    .game-card.disabled {
+      cursor: not-allowed; pointer-events: none; opacity: 0.45;
     }
   </style>
 </head>
@@ -84,14 +108,41 @@
     <p>选一个游戏，和朋友一起玩</p>
   </header>
 
-  <div class="game-list" id="gameList"></div>
+  <!-- 游戏列表直接写死，不再依赖 JS 动态渲染 -->
+  <div class="game-list">
+    
+    <div class="game-card anim-up anim-delay-1" onclick="location.href='games/chat.html'">
+      <span class="hex">💬</span>
+      <span class="label">聊天室</span>
+    </div>
 
+    <div class="game-card anim-up anim-delay-2" onclick="location.href='games/doudizhu.html'">
+      <span class="hex">🃏</span>
+      <span class="label">斗地主</span>
+    </div>
+
+    <div class="game-card anim-up anim-delay-3" onclick="location.href='games/magnet.html'">
+      <span class="hex">🧲</span>
+      <span class="label">磁铁对战</span>
+    </div>
+
+    <div class="game-card disabled anim-up anim-delay-4">
+      <span class="hex">⭕</span>
+      <span class="label">五子棋 · 即将上线</span>
+    </div>
+
+    <div class="game-card disabled anim-up anim-delay-5">
+      <span class="hex">♟️</span>
+      <span class="label">象棋 · 即将上线</span>
+    </div>
+
+  </div>
+
+  <!-- 只需要引入配置和用户模块，不再需要 games.js 和 ui.js 来渲染列表了 -->
   <script src="shared/config.js"></script>
   <script src="shared/user.js"></script>
-  <script src="shared/games.js"></script>
   <script src="shared/ui.js"></script>
   <script>
-    // 等页面完全加载完
     window.onload = function() {
       // 1. 检查登录
       if (!User.isLoggedIn()) {
@@ -99,29 +150,21 @@
         return;
       }
 
-      // 2. 渲染用户信息
-      UI.renderAvatar(document.getElementById('myAvatar'), 'sm');
+      // 2. 渲染用户信息（头像和昵称）
+      // 注意：这里调用了 ui.js 里的 renderAvatar，只要你那个函数没删就行
+if (typeof UI !== 'undefined' && UI.renderAvatar) {
+        UI.renderAvatar(document.getElementById('myAvatar'), 'sm');
+      }
       document.getElementById('myNickname').innerText = User.getNickname();
 
+      // 3. 管理员入口
       if (User.isAdmin()) {
         document.getElementById('adminLink').style.display = 'inline-block';
       }
+
+      // 4. 签到天数
       User.checkDailyLogin();
-
-      // 3. 渲染游戏列表
-      var listEl = document.getElementById('gameList');
-      listEl.innerHTML = '';
-      
-      // 如果你在 games.js 里面没有写 GAMES，这里就防崩
-      if (typeof GAMES === 'undefined') {
-        listEl.innerHTML = '<p style="text-align:center;color:#ef4444;">GAMES 未定义，请检查 games.js</p>';
-        return;
-      }
-
-      GAMES.forEach(function (g, i) {
-        listEl.appendChild(UI.renderGameCard(g, i));
-      });
     };
   </script>
 </body>
-</html>
+</html>      
