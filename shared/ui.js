@@ -8,15 +8,21 @@ const UI = {
     el.style.background = User.getAvatarColor();
   },
 
-  // 渲染游戏卡片
+// 渲染游戏卡片
   renderGameCard(game, index) {
     var card = document.createElement('div');
     card.className = 'game-card anim-up anim-delay-' + Math.min(index + 1, 5);
     if (!game.online) card.classList.add('disabled');
+    
+    // 加了容错，防止 icon 或 name 没写导致崩掉
+    var icon = game.icon || '🎮';
+    var name = game.name || '未知游戏';
+    
     card.innerHTML =
-      '<span class="hex">' + game.icon + '</span>' +
-      '<span class="label">' + game.name + (game.online ? '' : ' · 即将上线') + '</span>';
-    if (game.online) {
+      '<span class="hex">' + icon + '</span>' +
+      '<span class="label">' + name + (game.online ? '' : ' · 即将上线') + '</span>';
+      
+    if (game.online && game.path) {
       card.onclick = function () { location.href = game.path; };
     }
     return card;
