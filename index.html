@@ -2,82 +2,40 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <script>
-    try {
-      if (!localStorage.getItem('samarra_user')) location.replace('login.html');
-    } catch (e) { location.replace('login.html'); }
-  </script>
   <title>SAMARRA</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="shared/common.css">
   <style>
     .top-left {
-      position: fixed;
-      top: 16px;
-      left: 16px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      z-index: 10;
+      position: fixed; top: 16px; left: 16px;
+      display: flex; align-items: center; gap: 10px; z-index: 10;
     }
     .top-left .nickname {
-      font-size: 13px;
-      font-weight: 600;
-      color: #334155;
+      font-size: 13px; font-weight: 600; color: #334155;
     }
     .top-right {
-      position: fixed;
-      top: 16px;
-      right: 16px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      z-index: 10;
+      position: fixed; top: 16px; right: 16px;
+      display: flex; align-items: center; gap: 8px; z-index: 10;
     }
-    .top-right .icon {
-      width: 36px;
-      height: 36px;
-    }
+    .top-right .icon { width: 36px; height: 36px; }
     .top-right a {
-      font-size: 12px;
-      color: #5b8cff;
-      text-decoration: none;
-      padding: 6px 12px;
-      border: 1px solid #e2e8f0;
-      border-radius: 20px;
-      background: #fff;
+      font-size: 12px; color: #5b8cff; text-decoration: none;
+      padding: 6px 12px; border: 1px solid #e2e8f0;
+      border-radius: 20px; background: #fff;
     }
     .top-right a:hover { background: #eff6ff; }
     .top-right .admin-link { display: none; }
-
-    header {
-      text-align: center;
-      margin-top: 40px;
-      margin-bottom: 30px;
-    }
+    header { text-align: center; margin-top: 40px; margin-bottom: 30px; }
     header .logo-row {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
     }
     header h1 {
-      font-size: 30px;
-      font-weight: 800;
-      letter-spacing: 3px;
-      color: #334155;
+      font-size: 30px; font-weight: 800; letter-spacing: 3px; color: #334155;
     }
-    header p {
-      font-size: 12px;
-      color: #94a3b8;
-      margin-top: 8px;
-    }
+    header p { font-size: 12px; color: #94a3b8; margin-top: 8px; }
     .game-list {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      width: 100%;
-      max-width: 420px;
+      display: flex; flex-direction: column; gap: 12px;
+      width: 100%; max-width: 420px;
     }
   </style>
 </head>
@@ -133,21 +91,37 @@
   <script src="shared/games.js"></script>
   <script src="shared/ui.js"></script>
   <script>
-    // 渲染用户信息
-    UI.renderAvatar(document.getElementById('myAvatar'), 'sm');
-    document.getElementById('myNickname').innerText = User.getNickname();
+    setTimeout(function () {
+      // 1. 检查登录
+      try {
+        if (!localStorage.getItem('samarra_user')) {
+          location.replace('login.html');
+          return;
+        }
+      } catch (e) {
+        location.replace('login.html');
+        return;
+      }
 
-    // 王轩显示管理入口
-    if (User.isAdmin()) {
-      document.getElementById('adminLink').style.display = 'inline-block';
-    }
+      // 2. 渲染用户信息
+      if (User.isLoggedIn()) {
+        UI.renderAvatar(document.getElementById('myAvatar'), 'sm');
+        document.getElementById('myNickname').innerText = User.getNickname();
 
-    // 渲染游戏列表
-    var listEl = document.getElementById('gameList');
-    GAMES.forEach(function (g, i) {
-      listEl.appendChild(UI.renderGameCard(g, i));
-    });
+        if (User.isAdmin()) {
+          document.getElementById('adminLink').style.display = 'inline-block';
+        }
+
+        User.checkDailyLogin();
+      }
+
+      // 3. 渲染游戏列表
+      var listEl = document.getElementById('gameList');
+      listEl.innerHTML = '';
+      GAMES.forEach(function (g, i) {
+        listEl.appendChild(UI.renderGameCard(g, i));
+      });
+    }, 300);
   </script>
 </body>
 </html>
-SAMARRA
