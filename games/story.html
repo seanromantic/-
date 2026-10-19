@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文字冒险 · SAMARRA</title>
+<link rel="stylesheet" href="../shared/common.css">
+<style>
+  .story-select { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 14px; }
+  .story-card { cursor: pointer; transition: transform .15s, box-shadow .15s; text-align: left; }
+  .story-card:hover { transform: translateY(-3px); box-shadow: 0 10px 26px rgba(0,0,0,.10); }
+  .story-card h3 { font-size: 16px; margin-bottom: 6px; }
+  .story-card .resume { font-size: 12px; color: var(--ok); font-weight: 700; }
+  .story-view { display: none; max-width: 680px; margin: 0 auto; }
+  .story-content { font-size: 17px; line-height: 1.9; white-space: pre-wrap; min-height: 140px; }
+  .option-btn { width: 100%; text-align: left; justify-content: flex-start; padding: 14px 20px; font-size: 15px; }
+  .ending-badge { background: linear-gradient(135deg,#fbbf24,#d97706); color:#fff;
+    display:inline-block; padding: 6px 16px; border-radius: 999px; font-weight:800; font-size:14px; }
+</style>
+</head>
+<body>
+<canvas class="fx-layer" id="fx"></canvas>
+<div class="toast-wrap" id="toasts"></div>
+
+<header class="topbar">
+  <div class="brand">SAMARRA · 文字冒险</div>
+  <div class="who">
+    <span id="nickLabel">—</span>
+    <a class="btn btn-sm btn-ghost" href="../index.html">返回大厅</a>
+  </div>
+</header>
+
+<div class="container">
+  <!-- 选择故事 -->
+  <section id="selectView">
+    <h2 style="margin-bottom:14px">选择你的冒险</h2>
+    <div class="story-select" id="storyList"></div>
+  </section>
+
+  <!-- 剧情 -->
+  <section id="storyView" class="story-view">
+    <div class="row-between" style="margin-bottom:14px">
+      <h2 id="storyTitle" style="font-size:20px">—</h2>
+      <button class="btn btn-sm btn-ghost" id="backBtn">返回选故事</button>
+    </div>
+    <div class="card">
+      <div class="story-content" id="storyContent"></div>
+      <div id="storyOptions" class="mt-24" style="display:flex;flex-direction:column;gap:10px"></div>
+      <div class="muted mt-16" style="font-size:12px" id="autoSaveTip">📌 存档自动绑定本设备昵称：<b id="nickInStory">—</b></div>
+    </div>
+  </section>
+</div>
+
+<script>
+/* ============ 轻量 Supabase REST 封装 ============ */
+/* 环境配置：优先 URL 参数（存入 sessionStorage 供跳转后使用），其次全局注入，最后内置默认值 */
+(function () {
+  try {
+    const p = new URLSearchParams(location.search);
+    if (p.get("sburl")) sessionStorage.setItem("samarra_cfg", JSON.stringify({ url: p.get("sburl"), key: p.get("sbkey") || "test-key" }));
+  } catch (e) {}
+})();
+const SB_CFG = (function () { try { const s = sessionStorage.getItem("samarra_cfg"); return s ? JSON.parse(s) : null; } catch (e) { return null; } })();
+const SB = {
+  url: (SB_CFG && SB_CFG.url) || (window.SAMARRA_CONFIG && SAMARRA_CONFIG.url) || "https://djvsugbstenltenktpwv.supabase.co",
+  key: (SB_CFG && SB_CFG.key) || (window.SAMARRA_CONFIG && SAMARRA_CONFIG.key) || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqdnN1Z2JzdGVubHRlbmt0cHd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2OTI0MDcsImV4cCI6MjEwNzI2ODQ0N30.XMBE7NCridZ34BG7LyRiHQRZP0SkVI209uQhqSgcIAs",
+  async rpc(fn, body) {
+    const r = await fetch(this.url + "/rest/v1/rpc/" + fn, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": this.key, "Authorization": "Bearer " + this.key, "Prefer": "return=representation" },
+      body: JSON.stringify(body || {})
+    });
+    if (!r.ok) {
+      let t = ""; try { t = (await r.json()).message || ""; } catch (e) {}
+      if (!t) { try { t = await r.text(); } catch (e2) {} }
+      throw new Error((t || ("HTTP " + r.status)).slice(0, 160));
+    }
+    const txt = await r.text();
+    return txt ? JSON.parse(txt) : null;
+  }
+};
+
+/* ============ 粒子 ============ */
+(function () {
+  const MAX = 60, BURST = 12;
+  const cv = document.getElementById("fx");
+  const ctx = cv.getContext("2d");
+  let parts = [], W = 0, H = 0;
+  function resize() { W = cv.width = innerWidth; H = cv.height = innerHeight; }
+  resize(); addEventListener("resize", resize);
+  addEventListener("click", function (e) {
+    for (let i = 0; i < BURST; i++) {
+      if (parts.length >= MAX) parts.shift();
+      const a = Math.random() * Math.PI * 2, v = 90 + Math.random() * 160;
+      parts.push({ x: e.clientX, y: e.clientY, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60,
+        life: 1, size: 2 + Math.random() * 3.5,
+        color: ["#4f46e5", "#7c3aed", "#f59e0b", "#10b981", "#ef4444"][(Math.random() * 5) | 0] });
+    }
+  });
+  (function loop() {
+    ctx.clearRect(0, 0, W, H);
+    parts = parts.filter(p => p.life > 0);
+    for (const p of parts) {
+      p.x += p.vx * 0.016; p.y += p.vy * 0.016; p.vy += 260 * 0.016; p.life -= 0.025;
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(loop);
+  })();
+})();
+
+/* ============ 冒险逻辑 ============ */
+const NICK_KEY = "samarra_nickname";
+const nickname = (localStorage.getItem(NICK_KEY) || "").trim();
+let currentStoryId = null;
+let currentNode = null;
+
+function toast(msg, type) {
+  const w = document.getElementById("toasts");
+  const t = document.createElement("div");
+  t.className = "toast" + (type ? " " + type : "");
+  t.textContent = msg;
+  w.appendChild(t);
+  setTimeout(() => t.remove(), 2600);
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function init() {
+  if (!nickname) { location.replace("../login.html"); return; }
+  document.getElementById("nickLabel").textContent = nickname;
+  document.getElementById("nickInStory").textContent = nickname;
+  loadStories();
+}
+
+async function loadStories() {
+  const list = document.getElementById("storyList");
+  list.innerHTML = '<div class="card muted" style="grid-column:1/-1;text-align:center">加载中…</div>';
+  try {
+    const rows = await SB.rpc("list_stories", {});
+    if (!rows || !rows.length) {
+      list.innerHTML = '<div class="card muted" style="grid-column:1/-1;text-align:center">还没有故事，敬请期待</div>';
+      return;
+    }
+    list.innerHTML = "";
+    for (const s of rows) {
+      let resume = "";
+      try {
+        const prog = await SB.rpc("get_story_progress", { p_nickname: nickname, p_story_id: s.id });
+        if (prog) resume = '<span class="resume">▶ 继续冒险</span>';
+      } catch (e) {}
+      const d = document.createElement("div");
+      d.className = "card story-card pop-in";
+      d.innerHTML = '<h3>📖 ' + escapeHtml(s.title) + '</h3>' +
+        '<p class="muted" style="font-size:13px">' + (s.node_count || 0) + ' 个剧情节点</p>' +
+        (resume ? '<div style="margin-top:6px">' + resume + '</div>' : '');
+      d.addEventListener("click", () => openStory(s.id, s.title));
+      list.appendChild(d);
+    }
+  } catch (e) {
+    list.innerHTML = '<div class="card muted" style="grid-column:1/-1;text-align:center">加载失败：' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+async function openStory(id, title) {
+  currentStoryId = id;
+  document.getElementById("storyTitle").textContent = title;
+  let nodeKey = "start";
+  try {
+    const prog = await SB.rpc("get_story_progress", { p_nickname: nickname, p_story_id: id });
+    if (prog && prog.current_node) nodeKey = prog.current_node;
+  } catch (e) {}
+  document.getElementById("selectView").style.display = "none";
+  document.getElementById("storyView").style.display = "";
+  loadNode(nodeKey);
+}
+
+async function loadNode(nodeKey) {
+  try {
+    const node = await SB.rpc("get_story_node", { p_story_id: currentStoryId, p_node_key: nodeKey });
+    if (!node) { toast("节点不存在", "err"); return; }
+    currentNode = node;
+    document.getElementById("storyContent").textContent = node.content;
+    document.getElementById("storyContent").classList.remove("pop-in");
+    void document.getElementById("storyContent").offsetWidth;
+    document.getElementById("storyContent").classList.add("pop-in");
+
+    const opts = document.getElementById("storyOptions");
+    opts.innerHTML = "";
+    if (node.is_end) {
+      const b = document.createElement("div");
+      b.className = "ending-badge"; b.textContent = "🎉 结局达成";
+      const restart = document.createElement("button");
+      restart.className = "btn btn-primary btn-lg"; restart.textContent = "🔄 重新开始";
+      restart.addEventListener("click", () => {
+        SB.rpc("save_story_progress", { p_nickname: nickname, p_story_id: currentStoryId, p_node_key: "start" })
+          .then(() => loadNode("start")).catch(e => toast(e.message, "err"));
+      });
+      opts.appendChild(b); opts.appendChild(restart);
+    } else {
+      const optsArr = [];
+      if (node.option_a && node.target_a) optsArr.push({ label: node.option_a, target: node.target_a });
+      if (node.option_b && node.target_b) optsArr.push({ label: node.option_b, target: node.target_b });
+      optsArr.forEach(o => {
+        const b = document.createElement("button");
+        b.className = "btn option-btn"; b.textContent = "▸ " + o.label;
+        b.addEventListener("click", () => choose(o.target, b));
+        opts.appendChild(b);
+      });
+      if (!optsArr.length) {
+        opts.innerHTML = '<div class="muted" style="text-align:center">该节点没有可用的选项</div>';
+      }
+    }
+  } catch (e) { toast(e.message, "err"); }
+}
+
+async function choose(target, btn) {
+  btn.disabled = true;
+  try {
+    /* 强绑定设备昵称：把昵称与跳转节点写入 story_progress */
+    await SB.rpc("save_story_progress", { p_nickname: nickname, p_story_id: currentStoryId, p_node_key: target });
+    loadNode(target);
+  } catch (e) { btn.disabled = false; toast(e.message, "err"); }
+}
+
+document.getElementById("backBtn").addEventListener("click", () => {
+  document.getElementById("storyView").style.display = "none";
+  document.getElementById("selectView").style.display = "";
+  loadStories();
+});
+
+init();
+</script>
+</body>
+</html>

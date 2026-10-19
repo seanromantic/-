@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>登录 · SAMARRA</title>
+<link rel="stylesheet" href="shared/common.css">
+<style>
+  .hero { font-size: 42px; font-weight: 900; letter-spacing: 2px;
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .sub { color: var(--muted); margin: 10px 0 26px; }
+</style>
+</head>
+<body>
+<canvas class="fx-layer" id="fx"></canvas>
+<div class="toast-wrap" id="toasts"></div>
+
+<div class="center-box">
+  <div class="card pop-in">
+    <div class="hero">SAMARRA</div>
+    <div class="sub">网页游戏平台 · 斗地主 / 文字冒险</div>
+
+    <div class="field">
+      <label>昵称（绑定本设备，仅需输入一次）</label>
+      <input class="input" id="nickname" maxlength="16" placeholder="输入昵称后点击进入" autocomplete="off">
+    </div>
+
+    <button class="btn btn-primary btn-lg" id="enter" style="width:100%">进入大厅</button>
+    <p class="muted mt-16" style="font-size:12px">同一设备再次打开将自动使用上次昵称登录；换昵称请在大厅退出登录。</p>
+  </div>
+</div>
+
+<script>
+/* 环境配置透传：本页无数据请求，但把测试/自定义环境写入 sessionStorage 供跳转后的页面使用 */
+try {
+  const p = new URLSearchParams(location.search);
+  if (p.get("sburl")) sessionStorage.setItem("samarra_cfg", JSON.stringify({ url: p.get("sburl"), key: p.get("sbkey") || "test-key" }));
+} catch (e) {}
+/* ============ 轻量 Supabase REST 封装（零外部依赖；登录页不使用，保留默认配置） ============ */
+const SB = {
+  url: "https://djvsugbstenltenktpwv.supabase.co",
+  key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqdnN1Z2JzdGVubHRlbmt0cHd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2OTI0MDcsImV4cCI6MjEwNzI2ODQ0N30.XMBE7NCridZ34BG7LyRiHQRZP0SkVI209uQhqSgcIAs",
+  async rpc(fn, body) {
+    const r = await fetch(this.url + "/rest/v1/rpc/" + fn, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": this.key, "Authorization": "Bearer " + this.key, "Prefer": "return=representation" },
+      body: JSON.stringify(body || {})
+    });
+    if (!r.ok) {
+      let t = ""; try { t = (await r.json()).message || (await r.text()); } catch (e) { try { t = await r.text(); } catch (e2) {} }
+      throw new Error((t || ("HTTP " + r.status)).slice(0, 160));
+    }
+    const txt = await r.text();
+    return txt ? JSON.parse(txt) : null;
+  }
+};
+
+/* ============ 全站点击粒子动效（限量防卡顿） ============ */
+(function () {
+  const MAX = 60, BURST = 12;
+  const cv = document.getElementById("fx");
+  const ctx = cv.getContext("2d");
+  let parts = [], W = 0, H = 0;
+  function resize() { W = cv.width = innerWidth; H = cv.height = innerHeight; }
+  resize(); addEventListener("resize", resize);
+  addEventListener("click", function (e) {
+    for (let i = 0; i < BURST; i++) {
+      if (parts.length >= MAX) parts.shift();
+      const a = Math.random() * Math.PI * 2, v = 90 + Math.random() * 160;
+      parts.push({ x: e.clientX, y: e.clientY, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60,
+        life: 1, size: 2 + Math.random() * 3.5,
+        color: ["#4f46e5", "#7c3aed", "#f59e0b", "#10b981", "#ef4444"][(Math.random() * 5) | 0] });
+    }
+  });
+  (function loop() {
+    ctx.clearRect(0, 0, W, H);
+    parts = parts.filter(p => p.life > 0);
+    for (const p of parts) {
+      p.x += p.vx * 0.016; p.y += p.vy * 0.016; p.vy += 260 * 0.016; p.life -= 0.025;
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(loop);
+  })();
+})();
+
+/* ============ 登录逻辑：昵称绑定设备（localStorage） ============ */
+const NICK_KEY = "samarra_nickname";
+
+(function init() {
+  const saved = localStorage.getItem(NICK_KEY);
+  if (saved && saved.trim()) { location.replace("index.html"); return; }
+
+  const input = document.getElementById("nickname");
+  const enter = document.getElementById("enter");
+  const go = function () {
+    const n = (input.value || "").trim();
+    if (!n) { toast("请输入昵称", "err"); input.focus(); return; }
+    if (n.length > 16) { toast("昵称最长 16 个字符", "err"); return; }
+    localStorage.setItem(NICK_KEY, n);
+    location.replace("index.html");
+  };
+  enter.addEventListener("click", go);
+  input.addEventListener("keydown", e => { if (e.key === "Enter") go(); });
+  setTimeout(() => input.focus(), 60);
+})();
+
+function toast(msg, type) {
+  const w = document.getElementById("toasts");
+  const t = document.createElement("div");
+  t.className = "toast" + (type ? " " + type : "");
+  t.textContent = msg;
+  w.appendChild(t);
+  setTimeout(() => t.remove(), 2400);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文字游戏编辑器 · SAMARRA</title>
+<link rel="stylesheet" href="../shared/common.css">
+<style>
+  .pick-list { display: grid; grid-template-columns: repeat(auto-fill,minmax(200px,1fr)); gap: 12px; }
+  .pick-item { cursor: pointer; transition: transform .15s; }
+  .pick-item:hover { transform: translateY(-3px); }
+  #canvasWrap { flex:1 1 62%; position:relative; overflow:hidden; background:#eef0f4; }
+  #canvas { position:absolute; inset:0; overflow:auto; }
+  #world { position:relative; width:2400px; height:1600px; }
+  #edges { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:1; }
+  #tempLine { position:absolute; pointer-events:none; z-index:2; }
+  .mnode { position:absolute; z-index:5; }
+  .mnode .handle { position:absolute; bottom:-9px; width:16px; height:16px; border-radius:50%;
+    border:2px solid #fff; box-shadow:0 2px 5px rgba(0,0,0,.25); cursor:crosshair; z-index:6; }
+  .mnode .handle-a { left:26px; background:#2563eb; }
+  .mnode .handle-b { right:26px; background:#f59e0b; }
+  .mnode .handle:hover { transform:scale(1.25); }
+  .form-title { font-weight:800; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; }
+  textarea.input { border-radius:14px; resize:vertical; min-height:96px; font-family:inherit; }
+  .kbd { font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:6px; color:var(--muted); }
+  .mnode.target-hi { border-color: var(--brand) !important; box-shadow: 0 0 0 5px rgba(79,70,229,.28); }
+</style>
+</head>
+<body>
+<canvas class="fx-layer" id="fx"></canvas>
+<div class="toast-wrap" id="toasts"></div>
+
+<header class="topbar">
+  <div class="brand">SAMARRA · 文字游戏编辑器</div>
+  <div class="who">
+    <span id="storyName" class="muted">—</span>
+    <a class="btn btn-sm btn-ghost" href="../admin.html">返回后台</a>
+  </div>
+</header>
+
+<!-- 选择故事 -->
+<div class="container" id="pickView">
+  <h2 style="margin-bottom:14px">选择要编辑的故事</h2>
+  <div class="pick-list" id="pickList"></div>
+</div>
+
+<!-- 编辑器 -->
+<div class="editor-wrap" id="editView" style="display:none">
+  <div id="canvasWrap">
+    <div id="canvas">
+      <div id="world">
+        <svg id="edges" width="2400" height="1600">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+            </marker>
+          </defs>
+        </svg>
+        <svg id="tempLine" width="2400" height="1600" style="display:none"><line x1="0" y1="0" x2="0" y2="0" stroke="#2563eb" stroke-width="2" stroke-dasharray="5 4"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="editor-side">
+    <div class="form-title"><span>编辑节点</span>
+      <span class="row">
+        <button class="btn btn-sm btn-ghost" id="newNodeBtn">＋ 新建节点</button>
+        <button class="btn btn-sm btn-danger" id="delNodeBtn">删除</button>
+      </span>
+    </div>
+
+    <div class="field"><label>节点 Key（唯一标识，如 start / forest）</label>
+      <input class="input" id="f_key" placeholder="start"></div>
+    <div class="field"><label>剧情内容</label>
+      <textarea class="input" id="f_content" placeholder="这里是剧情文字……"></textarea></div>
+
+    <div class="divider"></div>
+
+    <div class="field"><label>选项 A（蓝色连线）</label>
+      <input class="input" id="f_oa" placeholder="选项文字"></div>
+    <div class="field"><label>选项 A 跳转到节点 Key</label>
+      <input class="input" id="f_ta" placeholder="目标节点 key"></div>
+
+    <div class="field"><label>选项 B（金色连线）</label>
+      <input class="input" id="f_ob" placeholder="选项文字"></div>
+    <div class="field"><label>选项 B 跳转到节点 Key</label>
+      <input class="input" id="f_tb" placeholder="目标节点 key"></div>
+
+    <div class="row muted" style="font-size:12px"><span>坐标 X: <b id="f_x">0</b></span><span>Y: <b id="f_y">0</b></span></div>
+
+    <button class="btn btn-primary btn-lg" id="saveBtn" style="width:100%;margin-top:12px">💾 保存节点</button>
+    <p class="muted mt-8" style="font-size:12px">💡 拖拽节点可调整位置；拖拽节点底部的蓝/金色圆点可快速连线到目标节点。</p>
+  </div>
+</div>
+
+<script>
+/* ============ 轻量 Supabase REST 封装 ============ */
+/* 环境配置：优先 URL 参数（存入 sessionStorage 供跳转后使用），其次全局注入，最后内置默认值 */
+(function () {
+  try {
+    const p = new URLSearchParams(location.search);
+    if (p.get("sburl")) sessionStorage.setItem("samarra_cfg", JSON.stringify({ url: p.get("sburl"), key: p.get("sbkey") || "test-key" }));
+  } catch (e) {}
+})();
+const SB_CFG = (function () { try { const s = sessionStorage.getItem("samarra_cfg"); return s ? JSON.parse(s) : null; } catch (e) { return null; } })();
+const SB = {
+  url: (SB_CFG && SB_CFG.url) || (window.SAMARRA_CONFIG && SAMARRA_CONFIG.url) || "https://djvsugbstenltenktpwv.supabase.co",
+  key: (SB_CFG && SB_CFG.key) || (window.SAMARRA_CONFIG && SAMARRA_CONFIG.key) || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqdnN1Z2JzdGVubHRlbmt0cHd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2OTI0MDcsImV4cCI6MjEwNzI2ODQ0N30.XMBE7NCridZ34BG7LyRiHQRZP0SkVI209uQhqSgcIAs",
+  async rpc(fn, body) {
+    const r = await fetch(this.url + "/rest/v1/rpc/" + fn, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": this.key, "Authorization": "Bearer " + this.key, "Prefer": "return=representation" },
+      body: JSON.stringify(body || {})
+    });
+    if (!r.ok) {
+      let t = ""; try { t = (await r.json()).message || ""; } catch (e) {}
+      if (!t) { try { t = await r.text(); } catch (e2) {} }
+      throw new Error((t || ("HTTP " + r.status)).slice(0, 160));
+    }
+    const txt = await r.text();
+    return txt ? JSON.parse(txt) : null;
+  }
+};
+
+/* ============ 粒子 ============ */
+(function () {
+  const MAX = 60, BURST = 12;
+  const cv = document.getElementById("fx");
+  const ctx = cv.getContext("2d");
+  let parts = [], W = 0, H = 0;
+  function resize() { W = cv.width = innerWidth; H = cv.height = innerHeight; }
+  resize(); addEventListener("resize", resize);
+  addEventListener("click", function (e) {
+    for (let i = 0; i < BURST; i++) {
+      if (parts.length >= MAX) parts.shift();
+      const a = Math.random() * Math.PI * 2, v = 90 + Math.random() * 160;
+      parts.push({ x: e.clientX, y: e.clientY, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60,
+        life: 1, size: 2 + Math.random() * 3.5,
+        color: ["#4f46e5", "#7c3aed", "#f59e0b", "#10b981", "#ef4444"][(Math.random() * 5) | 0] });
+    }
+  });
+  (function loop() {
+    ctx.clearRect(0, 0, W, H);
+    parts = parts.filter(p => p.life > 0);
+    for (const p of parts) {
+      p.x += p.vx * 0.016; p.y += p.vy * 0.016; p.vy += 260 * 0.016; p.life -= 0.025;
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(loop);
+  })();
+})();
+
+/* ============ 鉴权 ============ */
+const NICK_KEY = "samarra_nickname";
+const nickname = (localStorage.getItem(NICK_KEY) || "").trim();
+function toast(msg, type) {
+  const w = document.getElementById("toasts");
+  const t = document.createElement("div");
+  t.className = "toast" + (type ? " " + type : "");
+  t.textContent = msg;
+  w.appendChild(t);
+  setTimeout(() => t.remove(), 2600);
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+/* ============ 编辑器状态 ============ */
+let storyId = null;
+let nodes = [];           // [{node_key,content,option_a,target_a,option_b,target_b,pos_x,pos_y}]
+let selectedKey = null;
+let dragging = null;      // {key, dx, dy, moved}
+let linking = null;       // {fromKey, which, x, y}
+
+async function guard() {
+  if (!nickname) { location.replace("../login.html"); return false; }
+  try {
+    const ok = await SB.rpc("is_admin", { p_nickname: nickname });
+    if (!ok) { toast("无管理员权限，已拦截", "err"); setTimeout(() => location.replace("../index.html"), 900); return false; }
+    return true;
+  } catch (e) { toast("鉴权失败", "err"); setTimeout(() => location.replace("../index.html"), 900); return false; }
+}
+
+/* ---------- 故事选择 ---------- */
+async function showPicker() {
+  const list = document.getElementById("pickList");
+  list.innerHTML = "";
+  try {
+    const rows = await SB.rpc("list_stories", {});
+    rows.forEach(s => {
+      const d = document.createElement("div");
+      d.className = "card pick-item pop-in";
+      d.innerHTML = '<h3>📖 ' + escapeHtml(s.title) + '</h3><p class="muted" style="font-size:13px">' + (s.node_count||0) + ' 节点</p>';
+      d.addEventListener("click", () => openEditor(s.id, s.title));
+      list.appendChild(d);
+    });
+  } catch (e) { list.innerHTML = '<div class="card muted">加载失败：' + escapeHtml(e.message) + '</div>'; }
+}
+
+/* ---------- 打开编辑器 ---------- */
+async function openEditor(id, title) {
+  storyId = id;
+  document.getElementById("storyName").textContent = title;
+  document.getElementById("pickView").style.display = "none";
+  document.getElementById("editView").style.display = "";
+  try {
+    nodes = await SB.rpc("get_story_nodes", { p_story_id: storyId }) || [];
+  } catch (e) { nodes = []; toast(e.message, "err"); }
+  render();
+  if (nodes.length) selectNode(nodes[0].node_key);
+  document.getElementById("newNodeBtn").addEventListener("click", () => {
+    const key = prompt("新节点 Key（英文/数字，如 forest2）：", "node" + (nodes.length + 1));
+    if (!key) return;
+    const k = key.trim();
+    if (nodes.some(n => n.node_key === k)) { toast("节点 Key 已存在", "err"); return; }
+    const n = { node_key: k, content: "（新节点，请编辑内容）", option_a: "", target_a: "", option_b: "", target_b: "",
+      pos_x: (nodes.find(x => x.node_key === "start") ? 80 : 40) + nodes.length * 30,
+      pos_y: 120 + nodes.length * 40 };
+    nodes.push(n);
+    saveNode(n);
+    render();
+    selectNode(k);
+  });
+}
+
+/* ---------- 渲染节点与连线 ---------- */
+function render() {
+  const world = document.getElementById("world");
+  /* 清除旧节点（保留 edges svg） */
+  document.querySelectorAll(".mnode").forEach(el => el.remove());
+  for (const n of nodes) {
+    const div = document.createElement("div");
+    div.className = "mnode" + (n.node_key === "start" ? " start" : "") + (isEnd(n) ? " end" : "") + (n.node_key === selectedKey ? " sel" : "");
+    div.dataset.key = n.node_key;
+    div.style.left = n.pos_x + "px";
+    div.style.top = n.pos_y + "px";
+    div.innerHTML =
+      '<div class="nk">' + escapeHtml(n.node_key) + '</div>' +
+      '<div class="nc">' + escapeHtml(n.content || "") + '</div>' +
+      '<div class="handle handle-a" data-which="a" title="拖到目标节点建立选项A连线"></div>' +
+      '<div class="handle handle-b" data-which="b" title="拖到目标节点建立选项B连线"></div>';
+    div.addEventListener("mousedown", e => onNodeDown(e, n.node_key));
+    div.addEventListener("click", e => { if (!dragging) selectNode(n.node_key); });
+    world.appendChild(div);
+  }
+  drawEdges();
+  updateForm();
+}
+
+function isEnd(n) { return !(n.option_a && n.target_a) && !(n.option_b && n.target_b); }
+
+function nodeEl(key) { return document.querySelector('.mnode[data-key="' + key + '"]'); }
+
+function handlePos(el) {
+  /* 节点中心点（画布坐标） */
+  const r = el.getBoundingClientRect();
+  const canvas = document.getElementById("canvas");
+  const cr = canvas.getBoundingClientRect();
+  return { x: r.left - cr.left + r.width / 2, y: r.top - cr.top + r.height / 2 };
+}
+
+function drawEdges() {
+  const svg = document.getElementById("edges");
+  const ns = "http://www.w3.org/2000/svg";
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  /* 重建 defs */
+  const defs = document.createElementNS(ns, "defs");
+  const mk = document.createElementNS(ns, "marker");
+  mk.setAttribute("id", "arrow"); mk.setAttribute("viewBox", "0 0 10 10");
+  mk.setAttribute("refX", "9"); mk.setAttribute("refY", "5");
+  mk.setAttribute("markerWidth", "7"); mk.setAttribute("markerHeight", "7");
+  mk.setAttribute("orient", "auto-start-reverse");
+  const p = document.createElementNS(ns, "path");
+  p.setAttribute("d", "M0,0 L10,5 L0,10 z"); p.setAttribute("fill", "#94a3b8");
+  mk.appendChild(p); defs.appendChild(mk); svg.appendChild(defs);
+
+  for (const n of nodes) {
+    const from = nodeEl(n.node_key);
+    if (!from) continue;
+    const f = handlePos(from);
+    const links = [[n.option_a, n.target_a, "edge-a"], [n.option_b, n.target_b, "edge-b"]];
+    for (const [opt, target, cls] of links) {
+      if (!target) continue;
+      const to = nodeEl(target);
+      if (!to) continue;
+      const t = handlePos(to);
+      const line = document.createElementNS(ns, "line");
+      line.setAttribute("x1", f.x); line.setAttribute("y1", f.y + 20);
+      line.setAttribute("x2", t.x); line.setAttribute("y2", t.y - 40);
+      line.setAttribute("class", "edge " + cls);
+      line.setAttribute("marker-end", "url(#arrow)");
+      svg.appendChild(line);
+    }
+  }
+}
+
+/* ---------- 节点拖拽 ---------- */
+function onNodeDown(e, key) {
+  if (e.target.classList.contains("handle")) { onHandleDown(e, key); return; }
+  e.preventDefault();
+  const el = nodeEl(key);
+  const rect = el.getBoundingClientRect();
+  dragging = { key, dx: e.clientX - rect.left, dy: e.clientY - rect.top, moved: false };
+}
+document.addEventListener("mousemove", e => {
+  if (dragging) {
+    const el = nodeEl(dragging.key);
+    if (!el) return;
+    const canvas = document.getElementById("canvas");
+    const cr = canvas.getBoundingClientRect();
+    const nx = e.clientX - cr.left - dragging.dx;
+    const ny = e.clientY - cr.top - dragging.dy;
+    if (Math.abs(nx - parseFloat(el.style.left)) > 2 || Math.abs(ny - parseFloat(el.style.top)) > 2) dragging.moved = true;
+    el.style.left = nx + "px";
+    el.style.top = ny + "px";
+  } else if (linking) {
+    const tl = document.querySelector("#tempLine line");
+    const canvas = document.getElementById("canvas");
+    const cr = canvas.getBoundingClientRect();
+    const x2 = e.clientX - cr.left, y2 = e.clientY - cr.top;
+    tl.setAttribute("x2", x2); tl.setAttribute("y2", y2);
+    /* 高亮悬停节点 */
+    document.querySelectorAll(".mnode").forEach(el => el.classList.remove("target-hi"));
+    const hit = document.elementFromPoint(e.clientX, e.clientY)?.closest(".mnode");
+    if (hit && hit.dataset.key !== linking.fromKey) hit.classList.add("target-hi");
+  }
+});
+document.addEventListener("mouseup", e => {
+  if (dragging) {
+    const el = nodeEl(dragging.key);
+    const canvas = document.getElementById("canvas");
+    const cr = canvas.getBoundingClientRect();
+    const n = nodes.find(x => x.node_key === dragging.key);
+    if (n && el) {
+      n.pos_x = Math.max(0, Math.round(e.clientX - cr.left - dragging.dx));
+      n.pos_y = Math.max(0, Math.round(e.clientY - cr.top - dragging.dy));
+      if (dragging.moved) saveNode(n, true);
+    }
+    dragging = null;
+    updateForm();
+  }
+  if (linking) {
+    const tl = document.getElementById("tempLine");
+    tl.style.display = "none";
+    const hit = document.elementFromPoint(e.clientX, e.clientY)?.closest(".mnode");
+    if (hit && hit.dataset.key !== linking.fromKey) {
+      const n = nodes.find(x => x.node_key === linking.fromKey);
+      const target = hit.dataset.key;
+      if (!n) { linking = null; return; }
+      if (linking.which === "a") { n.option_a = n.option_a || "继续 →"; n.target_a = target; }
+      else { n.option_b = n.option_b || "继续 →"; n.target_b = target; }
+      saveNode(n);
+      render();
+      toast("已连线 → " + target, "ok");
+    }
+    linking = null;
+    document.querySelectorAll(".mnode").forEach(el => el.classList.remove("target-hi"));
+  }
+});
+
+/* 把手拖拽开始 */
+function onHandleDown(e, key) {
+  e.stopPropagation();
+  const which = e.target.dataset.which;
+  const from = handlePos(nodeEl(key));
+  const tl = document.getElementById("tempLine");
+  tl.setAttribute("x1", from.x); tl.setAttribute("y1", from.y + 20);
+  tl.setAttribute("x2", from.x); tl.setAttribute("y2", from.y + 20);
+  tl.style.display = "";
+  linking = { fromKey: key, which };
+}
+
+/* 鼠标滚轮缩放（加分项，简单实现） */
+document.getElementById("canvas").addEventListener("wheel", e => {
+  e.preventDefault();
+  const canvas = document.getElementById("canvas");
+  canvas.scrollLeft += e.deltaX;
+  canvas.scrollTop += e.deltaY;
+}, { passive: false });
+
+/* ---------- 右侧表单 ---------- */
+function selectNode(key) {
+  selectedKey = key;
+  document.querySelectorAll(".mnode").forEach(el => el.classList.toggle("sel", el.dataset.key === key));
+  updateForm();
+}
+
+function updateForm() {
+  const n = nodes.find(x => x.node_key === selectedKey);
+  const set = (id, v) => document.getElementById(id).value = (v === null || v === undefined) ? "" : v;
+  if (!n) {
+    set("f_key",""); set("f_content",""); set("f_oa",""); set("f_ta",""); set("f_ob",""); set("f_tb","");
+    document.getElementById("f_x").textContent = "0"; document.getElementById("f_y").textContent = "0";
+    return;
+  }
+  set("f_key", n.node_key); set("f_content", n.content);
+  set("f_oa", n.option_a); set("f_ta", n.target_a);
+  set("f_ob", n.option_b); set("f_tb", n.target_b);
+  document.getElementById("f_x").textContent = n.pos_x;
+  document.getElementById("f_y").textContent = n.pos_y;
+}
+
+async function saveNode(n, silent) {
+  try {
+    await SB.rpc("save_story_node", {
+      p_story_id: storyId, p_node_key: n.node_key, p_content: n.content || "",
+      p_option_a: n.option_a || null, p_target_a: n.target_a || null,
+      p_option_b: n.option_b || null, p_target_b: n.target_b || null,
+      p_pos_x: n.pos_x, p_pos_y: n.pos_y
+    });
+    if (!silent) toast("已保存 " + n.node_key, "ok");
+  } catch (e) { toast("保存失败：" + e.message, "err"); throw e; }
+}
+
+document.getElementById("saveBtn").addEventListener("click", async () => {
+  const n = nodes.find(x => x.node_key === selectedKey);
+  if (!n) { toast("请先选择节点", "err"); return; }
+  n.content = document.getElementById("f_content").value;
+  n.option_a = document.getElementById("f_oa").value;
+  n.target_a = document.getElementById("f_ta").value;
+  n.option_b = document.getElementById("f_ob").value;
+  n.target_b = document.getElementById("f_tb").value;
+  try { await saveNode(n); render(); } catch (e) {}
+});
+
+document.getElementById("delNodeBtn").addEventListener("click", async () => {
+  if (!selectedKey) return;
+  if (selectedKey === "start") { toast("起始节点不可删除", "err"); return; }
+  if (!confirm("删除节点 " + selectedKey + "？引用它的选项连线也会被清除")) return;
+  try {
+    await SB.rpc("delete_story_node", { p_story_id: storyId, p_node_key: selectedKey });
+    nodes = nodes.filter(x => x.node_key !== selectedKey);
+    nodes.forEach(x => { if (x.target_a === selectedKey) x.target_a = null; if (x.target_b === selectedKey) x.target_b = null; });
+    selectedKey = null;
+    render();
+    toast("已删除", "ok");
+  } catch (e) { toast(e.message, "err"); }
+});
+
+/* ---------- 启动 ---------- */
+guard().then(ok => {
+  if (!ok) return;
+  const params = new URLSearchParams(location.search);
+  const sid = params.get("story");
+  if (sid) {
+    SB.rpc("list_stories", {}).then(rows => {
+      const s = rows.find(x => String(x.id) === String(sid));
+      openEditor(parseInt(sid, 10), s ? s.title : "故事 #" + sid);
+    }).catch(() => openEditor(parseInt(sid, 10), "故事 #" + sid));
+  } else {
+    showPicker();
+  }
+});
+</script>
+</body>
+</html>
