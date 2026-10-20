@@ -407,8 +407,8 @@ BEGIN
     v_deck := array_append(v_deck, 16);
     v_deck := array_append(v_deck, 17);
   END LOOP;
-  -- Fisher-Yates 洗牌
-  FOR v_i IN cardinality(v_deck) DOWNTO 2 LOOP
+  -- Fisher-Yates 洗牌（Postgres FOR REVERSE 语法）
+  FOR v_i IN REVERSE cardinality(v_deck)..2 LOOP
     v_j := 1 + floor(random() * v_i)::int;
     v_p := v_deck[v_i];
     v_deck[v_i] := v_deck[v_j];
@@ -1134,15 +1134,15 @@ INSERT INTO admins (nickname) VALUES ('admin')
 ON CONFLICT (nickname) DO NOTHING;
 
 -- 示例文字冒险《勇者斗恶龙》
-INSERT INTO stories (id, title) VALUES (1, '勇者斗恶龙') ON CONFLICT DO NOTHING;
+INSERT INTO stories (id, title) OVERRIDING SYSTEM VALUE VALUES (1, '勇者斗恶龙') ON CONFLICT DO NOTHING;
 INSERT INTO story_nodes (story_id, node_key, content, option_a, target_a, option_b, target_b, pos_x, pos_y) VALUES
-(1, 'start', '你是一名年轻的勇者，站在巨龙山谷的入口。传说恶龙盘踞在山谷深处的古堡中，掳走了王国的小公主。你要如何开始你的冒险？', '小心潜入山谷', 'forest', '大张旗鼓杀进去', 'gate'),
-(1, 'forest', '你在茂密的森林中潜行，忽然发现一个受伤的老猎人。他愿意告诉你恶龙的弱点，作为回报，他希望你能带给他一株月光草。', '接受猎人的请求', 'moonlight', '婉拒并独自前行', 'cave'),
-(1, 'gate', '你挥舞着长剑冲向古堡大门，惊动了恶龙的守卫石像鬼。一场恶战即将开始！', '迎战石像鬼', 'fight', '退回森林隐藏', 'forest'),
-(1, 'moonlight', '你在月光下的湖边找到了月光草。老猎人告诉你：恶龙的护甲在月光下会变得脆弱，用月光草炼制的药剂可以破除它的防御。', '炼制月光药剂', 'cave', '直接去找恶龙', 'cave'),
-(1, 'cave', '你来到古堡深处的龙穴，恶龙正守护着沉睡的公主。你手中握着月光药剂，心跳如鼓。', '使用月光药剂攻击', 'victory', '与恶龙谈判', 'talk'),
-(1, 'fight', '你与石像鬼展开激战。经过一番苦战，你终于击败了它们，但也受了重伤。你踉跄着走进古堡，面对最后的决战。', '继续前进', 'cave', '先疗伤再说', 'forest'),
-(1, 'talk', '你试图与恶龙谈判。恶龙发出低沉的笑声：『勇士，公主其实是我自愿留下的——她正在为我编写诗歌集。』', '相信恶龙，转身离开', 'ending_talk', '不信，拔剑相向', 'cave'),
+(1, 'start', '你是一名年轻的勇者，站在巨龙山谷的入口。传说恶龙盘踞在山谷深处的古堡中，掳走了王国的小公主。你要如何开始你的冒险？', '小心潜入山谷', 'forest', '大张旗鼓杀进去', 'gate', 40, 120),
+(1, 'forest', '你在茂密的森林中潜行，忽然发现一个受伤的老猎人。他愿意告诉你恶龙的弱点，作为回报，他希望你能带给他一株月光草。', '接受猎人的请求', 'moonlight', '婉拒并独自前行', 'cave', 250, 120),
+(1, 'gate', '你挥舞着长剑冲向古堡大门，惊动了恶龙的守卫石像鬼。一场恶战即将开始！', '迎战石像鬼', 'fight', '退回森林隐藏', 'forest', 250, 320),
+(1, 'moonlight', '你在月光下的湖边找到了月光草。老猎人告诉你：恶龙的护甲在月光下会变得脆弱，用月光草炼制的药剂可以破除它的防御。', '炼制月光药剂', 'cave', '直接去找恶龙', 'cave', 460, 120),
+(1, 'cave', '你来到古堡深处的龙穴，恶龙正守护着沉睡的公主。你手中握着月光药剂，心跳如鼓。', '使用月光药剂攻击', 'victory', '与恶龙谈判', 'talk', 460, 320),
+(1, 'fight', '你与石像鬼展开激战。经过一番苦战，你终于击败了它们，但也受了重伤。你踉跄着走进古堡，面对最后的决战。', '继续前进', 'cave', '先疗伤再说', 'forest', 460, 520),
+(1, 'talk', '你试图与恶龙谈判。恶龙发出低沉的笑声：『勇士，公主其实是我自愿留下的——她正在为我编写诗歌集。』', '相信恶龙，转身离开', 'ending_talk', '不信，拔剑相向', 'cave', 460, 620),
 (1, 'victory', '你掷出月光药剂，恶龙的护甲在月光下碎裂。你一剑刺穿它的心脏，救出了公主。国王为你加冕，你成为王国最伟大的勇者！【结局：屠龙英雄】', NULL, NULL, NULL, NULL, 500, 500),
 (1, 'ending_talk', '你转身离开，却听到公主的声音：『别走！他说谎！』你回头，看见公主挣脱束缚，手中握着恶龙偷来的圣剑……原来真正的恶龙是公主的叔叔，他篡位后躲在这里。你和公主联手击败了他，王国恢复了和平。【结局：真相大白】', NULL, NULL, NULL, NULL, 500, 200)
 ON CONFLICT (story_id, node_key) DO NOTHING;
