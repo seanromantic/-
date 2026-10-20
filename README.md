@@ -25,6 +25,14 @@
 
 ## 部署步骤
 
+### 0. 线上地址（GitHub Pages）
+
+```
+https://seanromantic.github.io/-/
+```
+
+> 主分支已推送全部新代码（旧 HTML/JS/CSS 已作废删除）。数据库尚未初始化时页面可打开，但功能需先完成下方第 1 步。
+
 ### 1. 初始化数据库（Supabase）
 
 1. 打开 [Supabase Dashboard](https://supabase.com/dashboard) → 选择项目 `djvsugbstenltenktpwv` → **SQL Editor**。
