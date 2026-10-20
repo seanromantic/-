@@ -216,8 +216,8 @@ async function openEditor(id, title) {
     const k = key.trim();
     if (nodes.some(n => n.node_key === k)) { toast("节点 Key 已存在", "err"); return; }
     const n = { node_key: k, content: "（新节点，请编辑内容）", option_a: "", target_a: "", option_b: "", target_b: "",
-      pos_x: (nodes.find(x => x.node_key === "start") ? 80 : 40) + nodes.length * 30,
-      pos_y: 120 + nodes.length * 40 };
+      pos_x: 60 + nodes.length * 300,
+      pos_y: 80 + (nodes.length % 3) * 140 };
     nodes.push(n);
     saveNode(n);
     render();
@@ -279,16 +279,20 @@ function drawEdges() {
   for (const n of nodes) {
     const from = nodeEl(n.node_key);
     if (!from) continue;
-    const f = handlePos(from);
+    const fr = from.getBoundingClientRect();
+    const canvas = document.getElementById("canvas");
+    const cr = canvas.getBoundingClientRect();
+    const fBottom = { x: fr.left - cr.left + fr.width / 2, y: fr.bottom - cr.top };
     const links = [[n.option_a, n.target_a, "edge-a"], [n.option_b, n.target_b, "edge-b"]];
     for (const [opt, target, cls] of links) {
       if (!target) continue;
       const to = nodeEl(target);
       if (!to) continue;
-      const t = handlePos(to);
+      const tr = to.getBoundingClientRect();
+      const tTop = { x: tr.left - cr.left + tr.width / 2, y: tr.top - cr.top };
       const line = document.createElementNS(ns, "line");
-      line.setAttribute("x1", f.x); line.setAttribute("y1", f.y + 20);
-      line.setAttribute("x2", t.x); line.setAttribute("y2", t.y - 40);
+      line.setAttribute("x1", fBottom.x); line.setAttribute("y1", fBottom.y);
+      line.setAttribute("x2", tTop.x); line.setAttribute("y2", tTop.y);
       line.setAttribute("class", "edge " + cls);
       line.setAttribute("marker-end", "url(#arrow)");
       svg.appendChild(line);
