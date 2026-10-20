@@ -350,14 +350,25 @@ async function loadUsers() {
       });
       sel += '</select>';
       const isSean = u.nickname === "Sean";
+      const resetBtn = isSean ? '' : ' <button class="btn btn-sm btn-ghost" data-act="reset-pwd" data-nick="' + encodeURIComponent(u.nickname) + '">重置密码为123456</button>';
       d.innerHTML = '<div class="t">' + escapeHtml(u.nickname) +
         (isSean ? ' <span style="color:var(--brand);font-size:12px">(超管·最高权限)</span>' : '') +
         ' <span class="muted" style="font-size:12px">Lv.' + (u.level >= 10 ? "MAX" : u.level) + ' · 在线 ' + u.minutes + ' 分钟</span></div>' +
-        (isSean ? '<span class="muted" style="font-size:12px">不可修改</span>' : sel);
+        (isSean ? '<span class="muted" style="font-size:12px">不可修改</span>' : sel + resetBtn);
       list.appendChild(d);
     });
   } catch (e) { list.innerHTML = '<div class="card muted" style="text-align:center">加载失败：' + escapeHtml(e.message) + '</div>'; }
 }
+document.getElementById("userList").addEventListener("click", async e => {
+  const btn = e.target.closest("button[data-act='reset-pwd']");
+  if (!btn) return;
+  const target = decodeURIComponent(btn.dataset.nick);
+  if (!confirm("确定将 " + target + " 的密码重置为 123456 ？")) return;
+  try {
+    await SB.rpc("admin_reset_password", { p_admin: nickname, p_target: target });
+    toast("已重置 " + target + " 的密码为 123456", "ok");
+  } catch (err) { toast(err.message, "err"); }
+});
 document.getElementById("userList").addEventListener("change", async e => {
   const sel = e.target.closest("select[data-nick]");
   if (!sel) return;

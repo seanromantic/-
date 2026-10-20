@@ -404,3 +404,32 @@ body {
   cursor: pointer; box-shadow: 0 6px 18px rgba(245,158,11,.4);
 }
 .vip-modal .close-x { float: right; cursor: pointer; color: var(--muted); font-size: 20px; line-height: 1; }
+
+/* ========== 全局精致 Toast（毛玻璃胶囊） ========== */
+.toast-wrap {
+  position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+  z-index: 99999; display: flex; flex-direction: column; gap: 8px;
+  pointer-events: none; align-items: center;
+}
+.toast {
+  padding: 10px 20px; border-radius: 999px;
+  background: rgba(20,20,30,.78); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  color: #fff; font-size: 14px; font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  animation: toast-in .25s cubic-bezier(.2,.9,.3,1.3), toast-out .3s ease 1.7s forwards;
+  max-width: 90vw; text-align: center;
+}
+.toast.ok { background: rgba(16,185,129,.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.toast.err { background: rgba(239,68,68,.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.toast::before { margin-right: 6px; }
+.toast:not(.ok):not(.err)::before { content: "ℹ️"; }
+.toast.ok::before { content: "✅"; }
+.toast.err::before { content: "❌"; }
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-16px) scale(.9); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes toast-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-10px); }
+}

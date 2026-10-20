@@ -40,6 +40,10 @@
           <div class="chip" data-n="4">🃏🃏 4 人两副牌</div>
         </div>
       </div>
+      <div class="field">
+        <label>自定义房间号（可选，6 位数字/字母）</label>
+        <input class="input" id="customRoomCode" maxlength="6" placeholder="留空则随机生成，如 666666" autocomplete="off" style="text-transform:uppercase">
+      </div>
       <button class="btn btn-primary btn-lg" id="createBtn" style="width:100%">创建房间</button>
     </div>
 
@@ -172,7 +176,13 @@ document.querySelectorAll(".chip").forEach(c => {
 document.getElementById("createBtn").addEventListener("click", async () => {
   setBusy("createBtn", true, "创建中…");
   try {
-    const room = await SB.rpc("create_room", { p_max_players: mode, p_nickname: nickname, p_level: levelOf(nickname) });
+    const custom = (document.getElementById("customRoomCode").value || "").trim().toUpperCase();
+    const room = await SB.rpc("create_room", {
+      p_max_players: mode,
+      p_nickname: nickname,
+      p_level: levelOf(nickname),
+      p_room_code: custom || null
+    });
     enterRoom(room);
     toast("房间创建成功：" + room.room_code, "ok");
   } catch (e) { toast(e.message, "err"); }

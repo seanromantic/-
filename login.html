@@ -22,22 +22,20 @@
     <div class="sub">网页游戏平台 · 斗地主 / 文字冒险</div>
 
     <div class="field">
-      <label>昵称（绑定本设备，仅需输入一次）</label>
-      <input class="input" id="nickname" maxlength="16" placeholder="输入昵称后点击进入" autocomplete="off">
+      <label>昵称</label>
+      <input class="input" id="nickname" maxlength="16" placeholder="输入昵称" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>密码</label>
+      <input class="input" id="password" type="password" maxlength="32" placeholder="初始密码 123456" autocomplete="off">
     </div>
 
     <button class="btn btn-primary btn-lg" id="enter" style="width:100%">进入大厅</button>
-    <p class="muted mt-16" style="font-size:12px">同一设备再次打开将自动使用上次昵称登录；换昵称请在大厅退出登录。</p>
+    <p class="muted mt-16" style="font-size:12px">新用户自动注册，初始密码 <b>123456</b>；7 天内免密自动登录。</p>
   </div>
 </div>
 
 <script>
-/* 环境配置透传：本页无数据请求，但把测试/自定义环境写入 sessionStorage 供跳转后的页面使用 */
-try {
-  const p = new URLSearchParams(location.search);
-  if (p.get("sburl")) sessionStorage.setItem("samarra_cfg", JSON.stringify({ url: p.get("sburl"), key: p.get("sbkey") || "test-key" }));
-} catch (e) {}
-/* ============ 轻量 Supabase REST 封装（零外部依赖；登录页不使用，保留默认配置） ============ */
 const SB = {
   url: "https://djvsugbstenltenktpwv.supabase.co",
   key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqdnN1Z2JzdGVubHRlbmt0cHd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2OTI0MDcsImV4cCI6MjEwNzI2ODQwN30.XMBE7NCridZ34BG7LyRiHQRZP0SkVI209uQhqSgcIAs",
@@ -56,7 +54,7 @@ const SB = {
   }
 };
 
-/* ============ 全站点击粒子动效（限量防卡顿） ============ */
+/* ============ 粒子 ============ */
 (function () {
   const MAX = 60, BURST = 12;
   const cv = document.getElementById("fx");
@@ -87,26 +85,10 @@ const SB = {
   })();
 })();
 
-/* ============ 登录逻辑：昵称绑定设备（localStorage） ============ */
+/* ============ 登录逻辑 ============ */
 const NICK_KEY = "samarra_nickname";
-
-(function init() {
-  const saved = localStorage.getItem(NICK_KEY);
-  if (saved && saved.trim()) { location.replace("index.html"); return; }
-
-  const input = document.getElementById("nickname");
-  const enter = document.getElementById("enter");
-  const go = function () {
-    const n = (input.value || "").trim();
-    if (!n) { toast("请输入昵称", "err"); input.focus(); return; }
-    if (n.length > 16) { toast("昵称最长 16 个字符", "err"); return; }
-    localStorage.setItem(NICK_KEY, n);
-    location.replace("index.html");
-  };
-  enter.addEventListener("click", go);
-  input.addEventListener("keydown", e => { if (e.key === "Enter") go(); });
-  setTimeout(() => input.focus(), 60);
-})();
+const TIME_KEY = "samarra_login_time";
+const WEEK = 7 * 24 * 3600 * 1000;
 
 function toast(msg, type) {
   const w = document.getElementById("toasts");
@@ -116,6 +98,53 @@ function toast(msg, type) {
   w.appendChild(t);
   setTimeout(() => t.remove(), 2400);
 }
+
+(function init() {
+  /* 7 天免密：有昵称 + 时间戳未过期 → 直接进大厅 */
+  const savedNick = localStorage.getItem(NICK_KEY);
+  const savedTime = parseInt(localStorage.getItem(TIME_KEY) || "0", 10);
+  if (savedNick && savedNick.trim() && (Date.now() - savedTime) < WEEK) {
+    location.replace("index.html");
+    return;
+  }
+  /* 过期则清除 */
+  if (savedNick) { localStorage.removeItem(NICK_KEY); localStorage.removeItem(TIME_KEY); }
+
+  const input = document.getElementById("nickname");
+  const pwd = document.getElementById("password");
+  const enter = document.getElementById("enter");
+
+  const go = async function () {
+    const n = (input.value || "").trim();
+    const p = pwd.value || "";
+    if (!n) { toast("请输入昵称", "err"); input.focus(); return; }
+    if (!p) { toast("请输入密码", "err"); pwd.focus(); return; }
+    if (n.length > 16) { toast("昵称最长 16 个字符", "err"); return; }
+    try {
+      enter.disabled = true;
+      enter.textContent = "登录中…";
+      let r = await SB.rpc("login_user", { p_nickname: n, p_password: p });
+      if (Array.isArray(r)) r = r[0];
+      if (r && r.ok) {
+        localStorage.setItem(NICK_KEY, n);
+        localStorage.setItem(TIME_KEY, String(Date.now()));
+        location.replace("index.html");
+      } else {
+        toast("密码错误，请重试", "err");
+        pwd.value = "";
+        pwd.focus();
+      }
+    } catch (e) {
+      toast(e.message, "err");
+    } finally {
+      enter.disabled = false;
+      enter.textContent = "进入大厅";
+    }
+  };
+  enter.addEventListener("click", go);
+  pwd.addEventListener("keydown", e => { if (e.key === "Enter") go(); });
+  setTimeout(() => input.focus(), 60);
+})();
 </script>
 </body>
 </html>
