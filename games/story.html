@@ -174,7 +174,7 @@ async function openStory(id, title) {
     if (prog && prog.current_node) nodeKey = prog.current_node;
   } catch (e) {}
   document.getElementById("selectView").style.display = "none";
-  document.getElementById("storyView").style.display = "";
+  document.getElementById("storyView").style.display = "block";
   loadNode(nodeKey);
 }
 
@@ -228,7 +228,7 @@ async function choose(target, btn) {
 
 document.getElementById("backBtn").addEventListener("click", () => {
   document.getElementById("storyView").style.display = "none";
-  document.getElementById("selectView").style.display = "";
+  document.getElementById("selectView").style.display = "block";
   loadStories();
 });
 

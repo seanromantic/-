@@ -199,7 +199,7 @@ function initIdentity() {
 
 /* ============ 大厅视图 ============ */
 function showLobby() {
-  document.getElementById("lobbyView").style.display = "";
+  document.getElementById("lobbyView").style.display = "block";
   document.getElementById("roomView").style.display = "none";
   stopPoll();
 }
@@ -246,7 +246,7 @@ function enterRoom(room) {
   roomCode = room.room_code;
   sessionStorage.setItem(ROOM_KEY, roomCode);
   document.getElementById("lobbyView").style.display = "none";
-  document.getElementById("roomView").style.display = "";
+  document.getElementById("roomView").style.display = "block";
   document.getElementById("roomCode").textContent = roomCode;
   refreshRoom(room);
   startPoll();
