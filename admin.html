@@ -38,6 +38,25 @@
   <div class="divider"></div>
 
   <div class="row-between">
+    <h3>👥 管理员管理</h3>
+    <div class="row">
+      <input class="input" id="newAdminNick" placeholder="要提升的昵称" style="width:200px">
+      <button class="btn btn-primary btn-sm" id="newAdminBtn">添加管理员</button>
+    </div>
+  </div>
+  <div class="admin-list mt-16" id="adminList"></div>
+
+  <div class="divider"></div>
+
+  <div class="row-between">
+    <h3>🏠 房间管理</h3>
+    <button class="btn btn-sm btn-ghost" id="refreshRoomsBtn">刷新</button>
+  </div>
+  <div class="admin-list mt-16" id="roomList"></div>
+
+  <div class="divider"></div>
+
+  <div class="row-between">
     <h3>故事列表</h3>
     <div class="row">
       <input class="input" id="newStoryTitle" placeholder="新故事标题" style="width:200px">
@@ -182,8 +201,86 @@ document.getElementById("newStoryBtn").addEventListener("click", async () => {
   } catch (e) { toast(e.message, "err"); }
 });
 
+/* ============ 管理员管理 ============ */
+async function loadAdmins() {
+  const list = document.getElementById("adminList");
+  list.innerHTML = "";
+  try {
+    const rows = await SB.rpc("admin_list_admins", { p_admin: nickname });
+    if (!rows || !rows.length) {
+      list.innerHTML = '<div class="card muted" style="text-align:center">暂无管理员</div>';
+      return;
+    }
+    rows.forEach(a => {
+      const d = document.createElement("div");
+      d.className = "admin-item pop-in";
+      const isSelf = a.nickname === nickname;
+      d.innerHTML = '<div class="t">👤 ' + escapeHtml(a.nickname) + (isSelf ? ' <span style="color:var(--brand);font-size:12px">(我)</span>' : '') + '</div>';
+      if (!isSelf) {
+        d.innerHTML += '<button class="btn btn-sm btn-danger" data-act="rm-admin" data-nick="' + encodeURIComponent(a.nickname) + '">移除</button>';
+      }
+      list.appendChild(d);
+    });
+  } catch (e) { list.innerHTML = '<div class="card muted" style="text-align:center">加载失败：' + escapeHtml(e.message) + '</div>'; }
+}
+
+document.getElementById("adminList").addEventListener("click", e => {
+  const btn = e.target.closest("button[data-act='rm-admin']");
+  if (!btn) return;
+  const target = decodeURIComponent(btn.dataset.nick);
+  if (!confirm("确定移除管理员 " + target + " ？")) return;
+  SB.rpc("admin_remove_admin", { p_admin: nickname, p_target: target })
+    .then(() => { toast("已移除", "ok"); loadAdmins(); })
+    .catch(err => toast(err.message, "err"));
+});
+
+document.getElementById("newAdminBtn").addEventListener("click", async () => {
+  const t = (document.getElementById("newAdminNick").value || "").trim();
+  if (!t) { toast("请输入昵称", "err"); return; }
+  try {
+    await SB.rpc("admin_add_admin", { p_admin: nickname, p_target: t });
+    toast("已添加管理员：" + t, "ok");
+    document.getElementById("newAdminNick").value = "";
+    loadAdmins();
+  } catch (e) { toast(e.message, "err"); }
+});
+
+/* ============ 房间管理 ============ */
+async function loadRooms() {
+  const list = document.getElementById("roomList");
+  list.innerHTML = "";
+  try {
+    const rows = await SB.rpc("admin_list_rooms", { p_admin: nickname });
+    if (!rows || !rows.length) {
+      list.innerHTML = '<div class="card muted" style="text-align:center">当前没有活跃房间</div>';
+      return;
+    }
+    rows.forEach(r => {
+      const d = document.createElement("div");
+      d.className = "admin-item pop-in";
+      const statusText = { waiting: "等待中", playing: "对局中", ended: "已结束" }[r.status] || r.status;
+      d.innerHTML = '<div class="t">🚪 ' + escapeHtml(r.room_code) +
+        ' <span class="muted" style="font-size:13px">' + r.player_count + "/" + r.max_players + " 人 · " + statusText + '</span></div>' +
+        '<button class="btn btn-sm btn-danger" data-act="dismiss" data-code="' + escapeHtml(r.room_code) + '">解散房间</button>';
+      list.appendChild(d);
+    });
+  } catch (e) { list.innerHTML = '<div class="card muted" style="text-align:center">加载失败：' + escapeHtml(e.message) + '</div>'; }
+}
+
+document.getElementById("roomList").addEventListener("click", e => {
+  const btn = e.target.closest("button[data-act='dismiss']");
+  if (!btn) return;
+  const code = decodeURIComponent(btn.dataset.code);
+  if (!confirm("确定解散房间 " + code + " ？在线玩家会被踢出。")) return;
+  SB.rpc("admin_dismiss_room", { p_admin: nickname, p_room_code: code })
+    .then(() => { toast("已解散", "ok"); loadRooms(); })
+    .catch(err => toast(err.message, "err"));
+});
+
+document.getElementById("refreshRoomsBtn").addEventListener("click", loadRooms);
+
 /* ============ 启动 ============ */
-guard().then(ok => { if (ok) loadStories(); });
+guard().then(ok => { if (ok) { loadStories(); loadAdmins(); loadRooms(); } });
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
