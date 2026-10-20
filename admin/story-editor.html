@@ -9,21 +9,42 @@
   .pick-list { display: grid; grid-template-columns: repeat(auto-fill,minmax(200px,1fr)); gap: 12px; }
   .pick-item { cursor: pointer; transition: transform .15s; }
   .pick-item:hover { transform: translateY(-3px); }
-  #canvasWrap { flex:1 1 62%; position:relative; overflow:hidden; background:#eef0f4; }
-  #canvas { position:absolute; inset:0; overflow:auto; }
-  #world { position:relative; width:2400px; height:1600px; }
-  #edges { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:1; }
-  #tempLine { position:absolute; pointer-events:none; z-index:2; }
-  .mnode { position:absolute; z-index:5; }
+  #canvasWrap { flex:1 1 62%; position:relative; overflow:hidden; background:#eef0f4; cursor:grab; }
+  #canvasWrap.panning { cursor:grabbing; }
+  #world { position:absolute; left:0; top:0; width:0; height:0; transform-origin:0 0; }
+  #edges { position:absolute; left:0; top:0; overflow:visible; pointer-events:none; }
+  #tempLine { position:absolute; overflow:visible; pointer-events:none; }
+  .mnode { position:absolute; width:180px; background:#fff; border:2px solid #e5e7eb; border-radius:14px;
+    padding:10px 12px; cursor:grab; user-select:none; box-shadow:0 2px 8px rgba(0,0,0,.06); transition:border-color .15s, box-shadow .15s; }
+  .mnode:active { cursor:grabbing; }
+  .mnode.start { border-color:#10b981; }
+  .mnode.sel { border-color:var(--brand); box-shadow:0 0 0 4px rgba(79,70,229,.18); }
+  .mnode .nk { font-size:12px; font-weight:800; color:#6366f1; margin-bottom:4px; }
+  .mnode .nc { font-size:13px; color:#374151; line-height:1.4; max-height:80px; overflow:hidden; }
   .mnode .handle { position:absolute; bottom:-9px; width:16px; height:16px; border-radius:50%;
-    border:2px solid #fff; box-shadow:0 2px 5px rgba(0,0,0,.25); cursor:crosshair; z-index:6; }
+    border:2px solid #fff; box-shadow:0 2px 5px rgba(0,0,0,.25); cursor:crosshair; }
   .mnode .handle-a { left:26px; background:#2563eb; }
   .mnode .handle-b { right:26px; background:#f59e0b; }
   .mnode .handle:hover { transform:scale(1.25); }
+  /* 紧凑模式（zoom 很小时只露标题） */
+  #world.compact .mnode { width:auto; min-width:80px; padding:6px 10px; border-radius:999px; }
+  #world.compact .mnode .nc, #world.compact .mnode .handle { display:none; }
+  #world.compact .mnode .nk { margin-bottom:0; font-size:12px; }
+  .edge { stroke-width:2; fill:none; }
+  .edge-a { stroke:#2563eb; }
+  .edge-b { stroke:#f59e0b; }
   .form-title { font-weight:800; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; }
   textarea.input { border-radius:14px; resize:vertical; min-height:96px; font-family:inherit; }
-  .kbd { font-size:11px; background:#f3f4f6; padding:2px 8px; border-radius:6px; color:var(--muted); }
   .mnode.target-hi { border-color: var(--brand) !important; box-shadow: 0 0 0 5px rgba(79,70,229,.28); }
+  /* 画布工具栏 */
+  .canvas-toolbar { position:absolute; right:16px; bottom:16px; z-index:50; display:flex; gap:6px;
+    background:rgba(255,255,255,.85); backdrop-filter:blur(10px); padding:6px; border-radius:999px;
+    box-shadow:0 4px 16px rgba(0,0,0,.12); }
+  .canvas-toolbar button { width:36px; height:36px; border-radius:50%; border:none; background:#f3f4f6;
+    cursor:pointer; font-size:16px; font-weight:700; color:#374151; display:flex; align-items:center; justify-content:center; }
+  .canvas-toolbar button:hover { background:#e5e7eb; }
+  .zoom-label { position:absolute; left:16px; bottom:20px; z-index:50; font-size:12px; color:#6b7280;
+    background:rgba(255,255,255,.8); padding:4px 10px; border-radius:999px; }
 </style>
 </head>
 <body>
@@ -47,17 +68,16 @@
 <!-- 编辑器 -->
 <div class="editor-wrap" id="editView" style="display:none">
   <div id="canvasWrap">
-    <div id="canvas">
-      <div id="world">
-        <svg id="edges" width="2400" height="1600">
-          <defs>
-            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-              <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
-            </marker>
-          </defs>
-        </svg>
-        <svg id="tempLine" width="2400" height="1600" style="display:none"><line x1="0" y1="0" x2="0" y2="0" stroke="#2563eb" stroke-width="2" stroke-dasharray="5 4"/></svg>
-      </div>
+    <div id="world">
+      <svg id="edges"></svg>
+      <svg id="tempLine" style="display:none"><line x1="0" y1="0" x2="0" y2="0" stroke="#2563eb" stroke-width="2" stroke-dasharray="5 4"/></svg>
+    </div>
+    <div class="zoom-label" id="zoomLabel">100%</div>
+    <div class="canvas-toolbar">
+      <button id="zoomOutBtn" title="缩小">−</button>
+      <button id="zoomInBtn" title="放大">＋</button>
+      <button id="fitBtn" title="适应屏幕">⛶</button>
+      <button id="autoLayoutBtn" title="自动整理思维导图">✨</button>
     </div>
   </div>
   <div class="editor-side">
@@ -88,23 +108,15 @@
     <div class="row muted" style="font-size:12px"><span>坐标 X: <b id="f_x">0</b></span><span>Y: <b id="f_y">0</b></span></div>
 
     <button class="btn btn-primary btn-lg" id="saveBtn" style="width:100%;margin-top:12px">💾 保存节点</button>
-    <p class="muted mt-8" style="font-size:12px">💡 拖拽节点可调整位置；拖拽节点底部的蓝/金色圆点可快速连线到目标节点。</p>
+    <p class="muted mt-8" style="font-size:12px">💡 拖拽节点调整位置；拖拽空白处平移画布；滚轮缩放；✨自动整理思维导图。</p>
   </div>
 </div>
 
 <script>
-/* ============ 轻量 Supabase REST 封装 ============ */
-/* 环境配置：优先 URL 参数（存入 sessionStorage 供跳转后使用），其次全局注入，最后内置默认值 */
-(function () {
-  try {
-    const p = new URLSearchParams(location.search);
-    if (p.get("sburl")) sessionStorage.setItem("samarra_cfg", JSON.stringify({ url: p.get("sburl"), key: p.get("sbkey") || "test-key" }));
-  } catch (e) {}
-})();
-const SB_CFG = (function () { try { const s = sessionStorage.getItem("samarra_cfg"); return s ? JSON.parse(s) : null; } catch (e) { return null; } })();
+/* ============ Supabase ============ */
 const SB = {
-  url: (SB_CFG && SB_CFG.url) || (window.SAMARRA_CONFIG && SAMARRA_CONFIG.url) || "https://djvsugbstenltenktpwv.supabase.co",
-  key: (SB_CFG && SB_CFG.key) || (window.SAMARRA_CONFIG && SAMARRA_CONFIG.key) || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqdnN1Z2JzdGVubHRlbmt0cHd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2OTI0MDcsImV4cCI6MjEwNzI2ODQwN30.XMBE7NCridZ34BG7LyRiHQRZP0SkVI209uQhqSgcIAs",
+  url: "https://djvsugbstenltenktpwv.supabase.co",
+  key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqdnN1Z2JzdGVubHRlbmt0cHd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2OTI0MDcsImV4cCI6MjEwNzI2ODQwN30.XMBE7NCridZ34BG7LyRiHQRZP0SkVI209uQhqSgcIAs",
   async rpc(fn, body) {
     const r = await fetch(this.url + "/rest/v1/rpc/" + fn, {
       method: "POST",
@@ -169,19 +181,199 @@ function escapeHtml(s) {
 
 /* ============ 编辑器状态 ============ */
 let storyId = null;
-let nodes = [];           // [{node_key,content,option_a,target_a,option_b,target_b,pos_x,pos_y}]
+let nodes = [];
 let selectedKey = null;
-let dragging = null;      // {key, dx, dy, moved}
-let linking = null;       // {fromKey, which, x, y}
+let dragging = null;
+let linking = null;
+let panning = null;
+/* 视图变换 */
+const view = { x: 80, y: 60, zoom: 1 };
 
 async function guard() {
   if (!nickname) { location.replace("../login.html"); return false; }
   try {
     const ok = await SB.rpc("is_admin", { p_nickname: nickname });
-    if (!ok) { toast("无管理员权限，已拦截", "err"); setTimeout(() => location.replace("../index.html"), 900); return false; }
+    if (!ok) { toast("无管理员权限", "err"); setTimeout(() => location.replace("../index.html"), 900); return false; }
     return true;
   } catch (e) { toast("鉴权失败", "err"); setTimeout(() => location.replace("../index.html"), 900); return false; }
 }
+
+/* ---------- 视图变换应用 ---------- */
+function applyView() {
+  const world = document.getElementById("world");
+  world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`;
+  world.classList.toggle("compact", view.zoom < 0.55);
+  document.getElementById("zoomLabel").textContent = Math.round(view.zoom * 100) + "%";
+}
+
+/* 屏幕坐标 → 世界逻辑坐标 */
+function screenToWorld(sx, sy) {
+  const wrap = document.getElementById("canvasWrap").getBoundingClientRect();
+  return {
+    x: (sx - wrap.left - view.x) / view.zoom,
+    y: (sy - wrap.top - view.y) / view.zoom
+  };
+}
+
+/* ---------- 缩放（以鼠标为中心） ---------- */
+function zoomAt(mx, my, factor) {
+  const wrap = document.getElementById("canvasWrap").getBoundingClientRect();
+  const wx = (mx - wrap.left - view.x) / view.zoom;
+  const wy = (my - wrap.top - view.y) / view.zoom;
+  view.zoom = Math.max(0.25, Math.min(2.5, view.zoom * factor));
+  view.x = mx - wrap.left - wx * view.zoom;
+  view.y = my - wrap.top - wy * view.zoom;
+  applyView();
+}
+
+document.getElementById("canvasWrap").addEventListener("wheel", e => {
+  e.preventDefault();
+  zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.12 : 0.89);
+}, { passive: false });
+
+document.getElementById("zoomInBtn").addEventListener("click", () => {
+  const wrap = document.getElementById("canvasWrap").getBoundingClientRect();
+  zoomAt(wrap.left + wrap.width / 2, wrap.top + wrap.height / 2, 1.2);
+});
+document.getElementById("zoomOutBtn").addEventListener("click", () => {
+  const wrap = document.getElementById("canvasWrap").getBoundingClientRect();
+  zoomAt(wrap.left + wrap.width / 2, wrap.top + wrap.height / 2, 0.8);
+});
+
+/* 适应屏幕 */
+document.getElementById("fitBtn").addEventListener("click", fitView);
+function fitView() {
+  if (!nodes.length) { view.x = 80; view.y = 60; view.zoom = 1; applyView(); return; }
+  const xs = nodes.map(n => n.pos_x), ys = nodes.map(n => n.pos_y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs) + 180;
+  const minY = Math.min(...ys), maxY = Math.max(...ys) + 100;
+  const wrap = document.getElementById("canvasWrap").getBoundingClientRect();
+  const bw = maxX - minX, bh = maxY - minY;
+  view.zoom = Math.max(0.3, Math.min(1.5, Math.min(wrap.width / (bw + 80), wrap.height / (bh + 80))));
+  view.x = (wrap.width - bw * view.zoom) / 2 - minX * view.zoom;
+  view.y = (wrap.height - bh * view.zoom) / 2 - minY * view.zoom;
+  applyView();
+}
+
+/* ---------- 自动思维导图布局（BFS 分层） ---------- */
+document.getElementById("autoLayoutBtn").addEventListener("click", async () => {
+  autoLayout();
+  for (const n of nodes) {
+    try { await SB.rpc("save_story_node", { p_story_id: storyId, p_node_key: n.node_key, p_content: n.content || "", p_option_a: n.option_a || null, p_target_a: n.target_a || null, p_option_b: n.option_b || null, p_target_b: n.target_b || null, p_pos_x: n.pos_x, p_pos_y: n.pos_y }); } catch (e) {}
+  }
+  render();
+  fitView();
+  toast("已自动整理思维导图", "ok");
+});
+
+function autoLayout() {
+  if (!nodes.length) return;
+  const keySet = new Set(nodes.map(n => n.node_key));
+  /* 找根：start 或被引用最少的节点 */
+  let root = nodes.find(n => n.node_key === "start");
+  if (!root) {
+    const refCount = {};
+    nodes.forEach(n => {
+      [n.target_a, n.target_b].forEach(t => { if (t) refCount[t] = (refCount[t] || 0) + 1; });
+    });
+    root = nodes.slice().sort((a, b) => (refCount[a.node_key] || 0) - (refCount[b.node_key] || 0))[0];
+  }
+  /* BFS 分层 */
+  const level = {};
+  level[root.node_key] = 0;
+  const queue = [root.node_key];
+  while (queue.length) {
+    const k = queue.shift();
+    const n = nodes.find(x => x.node_key === k);
+    if (!n) continue;
+    [n.target_a, n.target_b].forEach(t => {
+      if (t && keySet.has(t) && level[t] === undefined) {
+        level[t] = level[k] + 1;
+        queue.push(t);
+      }
+    });
+  }
+  /* 未访问的节点挂到最大层 */
+  const maxL = Math.max(...Object.values(level), 0);
+  nodes.forEach(n => { if (level[n.node_key] === undefined) level[n.node_key] = maxL + 1; });
+  /* 按层分组 */
+  const byLevel = {};
+  nodes.forEach(n => {
+    const l = level[n.node_key];
+    (byLevel[l] = byLevel[l] || []).push(n);
+  });
+  /* 每层水平均匀分布，垂直按层递增 */
+  const LAYER_X = 260, LAYER_Y = 130;
+  Object.keys(byLevel).forEach(l => {
+    const group = byLevel[l];
+    const totalH = (group.length - 1) * LAYER_Y;
+    group.forEach((n, i) => {
+      n.pos_x = parseInt(l) * LAYER_X;
+      n.pos_y = Math.round(i * LAYER_Y - totalH / 2 + 100);
+    });
+  });
+}
+
+/* ---------- 画布空白处拖拽平移 ---------- */
+document.getElementById("canvasWrap").addEventListener("mousedown", e => {
+  if (e.target.closest(".mnode") || e.target.closest(".canvas-toolbar")) return;
+  panning = { sx: e.clientX, sy: e.clientY, ox: view.x, oy: view.y };
+  document.getElementById("canvasWrap").classList.add("panning");
+});
+document.addEventListener("mousemove", e => {
+  if (panning) {
+    view.x = panning.ox + (e.clientX - panning.sx);
+    view.y = panning.oy + (e.clientY - panning.sy);
+    applyView();
+  } else if (dragging) {
+    const el = nodeEl(dragging.key);
+    if (!el) return;
+    const w = screenToWorld(e.clientX, e.clientY);
+    const nx = w.x - dragging.dx, ny = w.y - dragging.dy;
+    el.style.left = nx + "px";
+    el.style.top = ny + "px";
+    dragging.moved = true;
+  } else if (linking) {
+    const tl = document.querySelector("#tempLine line");
+    const w = screenToWorld(e.clientX, e.clientY);
+    tl.setAttribute("x2", w.x); tl.setAttribute("y2", w.y);
+    document.querySelectorAll(".mnode").forEach(el => el.classList.remove("target-hi"));
+    const hit = document.elementFromPoint(e.clientX, e.clientY)?.closest(".mnode");
+    if (hit && hit.dataset.key !== linking.fromKey) hit.classList.add("target-hi");
+  }
+});
+document.addEventListener("mouseup", e => {
+  if (panning) { panning = null; document.getElementById("canvasWrap").classList.remove("panning"); }
+  if (dragging) {
+    const el = nodeEl(dragging.key);
+    const n = nodes.find(x => x.node_key === dragging.key);
+    if (n && el) {
+      const w = screenToWorld(e.clientX, e.clientY);
+      n.pos_x = Math.round(w.x - dragging.dx);
+      n.pos_y = Math.round(w.y - dragging.dy);
+      if (dragging.moved) saveNode(n, true);
+    }
+    dragging = null;
+    updateForm();
+  }
+  if (linking) {
+    document.getElementById("tempLine").style.display = "none";
+    const hit = document.elementFromPoint(e.clientX, e.clientY)?.closest(".mnode");
+    if (hit && hit.dataset.key !== linking.fromKey) {
+      const n = nodes.find(x => x.node_key === linking.fromKey);
+      const target = hit.dataset.key;
+      if (n) {
+        if (linking.which === "a") { n.option_a = n.option_a || "继续 →"; n.target_a = target; }
+        else { n.option_b = n.option_b || "继续 →"; n.target_b = target; }
+        saveNode(n);
+        render();
+        toast("已连线 → " + target, "ok");
+      }
+    }
+    linking = null;
+    document.querySelectorAll(".mnode").forEach(el => el.classList.remove("target-hi"));
+  }
+});
 
 /* ---------- 故事选择 ---------- */
 async function showPicker() {
@@ -209,15 +401,15 @@ async function openEditor(id, title) {
     nodes = await SB.rpc("get_story_nodes", { p_story_id: storyId }) || [];
   } catch (e) { nodes = []; toast(e.message, "err"); }
   render();
-  if (nodes.length) selectNode(nodes[0].node_key);
+  if (nodes.length) { selectNode(nodes[0].node_key); fitView(); }
   document.getElementById("newNodeBtn").addEventListener("click", () => {
     const key = prompt("新节点 Key（英文/数字，如 forest2）：", "node" + (nodes.length + 1));
     if (!key) return;
     const k = key.trim();
     if (nodes.some(n => n.node_key === k)) { toast("节点 Key 已存在", "err"); return; }
     const n = { node_key: k, content: "（新节点，请编辑内容）", option_a: "", target_a: "", option_b: "", target_b: "",
-      pos_x: 60 + nodes.length * 300,
-      pos_y: 80 + (nodes.length % 3) * 140 };
+      pos_x: 400 + nodes.length * 60,
+      pos_y: 200 + (nodes.length % 3) * 100 };
     nodes.push(n);
     saveNode(n);
     render();
@@ -225,76 +417,50 @@ async function openEditor(id, title) {
   });
 }
 
-/* ---------- 渲染节点与连线 ---------- */
+/* ---------- 渲染 ---------- */
 function render() {
   const world = document.getElementById("world");
-  /* 清除旧节点（保留 edges svg） */
   document.querySelectorAll(".mnode").forEach(el => el.remove());
   for (const n of nodes) {
     const div = document.createElement("div");
-    div.className = "mnode" + (n.node_key === "start" ? " start" : "") + (isEnd(n) ? " end" : "") + (n.node_key === selectedKey ? " sel" : "");
+    div.className = "mnode" + (n.node_key === "start" ? " start" : "") + (n.node_key === selectedKey ? " sel" : "");
     div.dataset.key = n.node_key;
     div.style.left = n.pos_x + "px";
     div.style.top = n.pos_y + "px";
     div.innerHTML =
       '<div class="nk">' + escapeHtml(n.node_key) + '</div>' +
       '<div class="nc">' + escapeHtml(n.content || "") + '</div>' +
-      '<div class="handle handle-a" data-which="a" title="拖到目标节点建立选项A连线"></div>' +
-      '<div class="handle handle-b" data-which="b" title="拖到目标节点建立选项B连线"></div>';
+      '<div class="handle handle-a" data-which="a"></div>' +
+      '<div class="handle handle-b" data-which="b"></div>';
     div.addEventListener("mousedown", e => onNodeDown(e, n.node_key));
     div.addEventListener("click", e => { if (!dragging) selectNode(n.node_key); });
     world.appendChild(div);
   }
   drawEdges();
   updateForm();
+  applyView();
 }
-
-function isEnd(n) { return !(n.option_a && n.target_a) && !(n.option_b && n.target_b); }
 
 function nodeEl(key) { return document.querySelector('.mnode[data-key="' + key + '"]'); }
-
-function handlePos(el) {
-  /* 节点中心点（画布坐标） */
-  const r = el.getBoundingClientRect();
-  const canvas = document.getElementById("canvas");
-  const cr = canvas.getBoundingClientRect();
-  return { x: r.left - cr.left + r.width / 2, y: r.top - cr.top + r.height / 2 };
-}
 
 function drawEdges() {
   const svg = document.getElementById("edges");
   const ns = "http://www.w3.org/2000/svg";
   while (svg.firstChild) svg.removeChild(svg.firstChild);
-  /* 重建 defs */
-  const defs = document.createElementNS(ns, "defs");
-  const mk = document.createElementNS(ns, "marker");
-  mk.setAttribute("id", "arrow"); mk.setAttribute("viewBox", "0 0 10 10");
-  mk.setAttribute("refX", "9"); mk.setAttribute("refY", "5");
-  mk.setAttribute("markerWidth", "7"); mk.setAttribute("markerHeight", "7");
-  mk.setAttribute("orient", "auto-start-reverse");
-  const p = document.createElementNS(ns, "path");
-  p.setAttribute("d", "M0,0 L10,5 L0,10 z"); p.setAttribute("fill", "#94a3b8");
-  mk.appendChild(p); defs.appendChild(mk); svg.appendChild(defs);
-
   for (const n of nodes) {
     const from = nodeEl(n.node_key);
     if (!from) continue;
-    const fr = from.getBoundingClientRect();
-    const canvas = document.getElementById("canvas");
-    const cr = canvas.getBoundingClientRect();
-    const fBottom = { x: fr.left - cr.left + fr.width / 2, y: fr.bottom - cr.top };
+    const fBottom = { x: n.pos_x + 90, y: n.pos_y + 70 };
     const links = [[n.option_a, n.target_a, "edge-a"], [n.option_b, n.target_b, "edge-b"]];
     for (const [opt, target, cls] of links) {
       if (!target) continue;
-      const to = nodeEl(target);
+      const to = nodes.find(x => x.node_key === target);
       if (!to) continue;
-      const tr = to.getBoundingClientRect();
-      const tTop = { x: tr.left - cr.left + tr.width / 2, y: tr.top - cr.top };
+      const tTop = { x: to.pos_x + 90, y: to.pos_y };
       const line = document.createElementNS(ns, "line");
       line.setAttribute("x1", fBottom.x); line.setAttribute("y1", fBottom.y);
       line.setAttribute("x2", tTop.x); line.setAttribute("y2", tTop.y);
       line.setAttribute("class", "edge " + cls);
-      line.setAttribute("marker-end", "url(#arrow)");
       svg.appendChild(line);
     }
   }
@@ -304,85 +470,25 @@ function drawEdges() {
 function onNodeDown(e, key) {
   if (e.target.classList.contains("handle")) { onHandleDown(e, key); return; }
   e.preventDefault();
-  const el = nodeEl(key);
-  const rect = el.getBoundingClientRect();
-  dragging = { key, dx: e.clientX - rect.left, dy: e.clientY - rect.top, moved: false };
+  e.stopPropagation();
+  const w = screenToWorld(e.clientX, e.clientY);
+  const n = nodes.find(x => x.node_key === key);
+  dragging = { key, dx: w.x - n.pos_x, dy: w.y - n.pos_y, moved: false };
 }
-document.addEventListener("mousemove", e => {
-  if (dragging) {
-    const el = nodeEl(dragging.key);
-    if (!el) return;
-    const canvas = document.getElementById("canvas");
-    const cr = canvas.getBoundingClientRect();
-    const nx = e.clientX - cr.left - dragging.dx;
-    const ny = e.clientY - cr.top - dragging.dy;
-    if (Math.abs(nx - parseFloat(el.style.left)) > 2 || Math.abs(ny - parseFloat(el.style.top)) > 2) dragging.moved = true;
-    el.style.left = nx + "px";
-    el.style.top = ny + "px";
-  } else if (linking) {
-    const tl = document.querySelector("#tempLine line");
-    const canvas = document.getElementById("canvas");
-    const cr = canvas.getBoundingClientRect();
-    const x2 = e.clientX - cr.left, y2 = e.clientY - cr.top;
-    tl.setAttribute("x2", x2); tl.setAttribute("y2", y2);
-    /* 高亮悬停节点 */
-    document.querySelectorAll(".mnode").forEach(el => el.classList.remove("target-hi"));
-    const hit = document.elementFromPoint(e.clientX, e.clientY)?.closest(".mnode");
-    if (hit && hit.dataset.key !== linking.fromKey) hit.classList.add("target-hi");
-  }
-});
-document.addEventListener("mouseup", e => {
-  if (dragging) {
-    const el = nodeEl(dragging.key);
-    const canvas = document.getElementById("canvas");
-    const cr = canvas.getBoundingClientRect();
-    const n = nodes.find(x => x.node_key === dragging.key);
-    if (n && el) {
-      n.pos_x = Math.max(0, Math.round(e.clientX - cr.left - dragging.dx));
-      n.pos_y = Math.max(0, Math.round(e.clientY - cr.top - dragging.dy));
-      if (dragging.moved) saveNode(n, true);
-    }
-    dragging = null;
-    updateForm();
-  }
-  if (linking) {
-    const tl = document.getElementById("tempLine");
-    tl.style.display = "none";
-    const hit = document.elementFromPoint(e.clientX, e.clientY)?.closest(".mnode");
-    if (hit && hit.dataset.key !== linking.fromKey) {
-      const n = nodes.find(x => x.node_key === linking.fromKey);
-      const target = hit.dataset.key;
-      if (!n) { linking = null; return; }
-      if (linking.which === "a") { n.option_a = n.option_a || "继续 →"; n.target_a = target; }
-      else { n.option_b = n.option_b || "继续 →"; n.target_b = target; }
-      saveNode(n);
-      render();
-      toast("已连线 → " + target, "ok");
-    }
-    linking = null;
-    document.querySelectorAll(".mnode").forEach(el => el.classList.remove("target-hi"));
-  }
-});
 
-/* 把手拖拽开始 */
 function onHandleDown(e, key) {
   e.stopPropagation();
   const which = e.target.dataset.which;
-  const from = handlePos(nodeEl(key));
+  const n = nodes.find(x => x.node_key === key);
   const tl = document.getElementById("tempLine");
-  tl.setAttribute("x1", from.x); tl.setAttribute("y1", from.y + 20);
-  tl.setAttribute("x2", from.x); tl.setAttribute("y2", from.y + 20);
   tl.style.display = "";
+  const line = tl.querySelector("line");
+  line.setAttribute("x1", n.pos_x + (which === "a" ? 40 : 140));
+  line.setAttribute("y1", n.pos_y + 70);
+  line.setAttribute("x2", n.pos_x + 90);
+  line.setAttribute("y2", n.pos_y + 70);
   linking = { fromKey: key, which };
 }
-
-/* 鼠标滚轮缩放（加分项，简单实现） */
-document.getElementById("canvas").addEventListener("wheel", e => {
-  e.preventDefault();
-  const canvas = document.getElementById("canvas");
-  canvas.scrollLeft += e.deltaX;
-  canvas.scrollTop += e.deltaY;
-}, { passive: false });
 
 /* ---------- 右侧表单 ---------- */
 function selectNode(key) {
@@ -415,7 +521,7 @@ async function saveNode(n, silent) {
       p_pos_x: n.pos_x, p_pos_y: n.pos_y
     });
     if (!silent) toast("已保存 " + n.node_key, "ok");
-  } catch (e) { toast("保存失败：" + e.message, "err"); throw e; }
+  } catch (e) { toast("保存失败：" + e.message, "err"); }
 }
 
 document.getElementById("saveBtn").addEventListener("click", async () => {
@@ -432,7 +538,7 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
 document.getElementById("delNodeBtn").addEventListener("click", async () => {
   if (!selectedKey) return;
   if (selectedKey === "start") { toast("起始节点不可删除", "err"); return; }
-  if (!confirm("删除节点 " + selectedKey + "？引用它的选项连线也会被清除")) return;
+  if (!confirm("删除节点 " + selectedKey + "？")) return;
   try {
     await SB.rpc("delete_story_node", { p_story_id: storyId, p_node_key: selectedKey });
     nodes = nodes.filter(x => x.node_key !== selectedKey);
@@ -446,16 +552,7 @@ document.getElementById("delNodeBtn").addEventListener("click", async () => {
 /* ---------- 启动 ---------- */
 guard().then(ok => {
   if (!ok) return;
-  const params = new URLSearchParams(location.search);
-  const sid = params.get("story");
-  if (sid) {
-    SB.rpc("list_stories", {}).then(rows => {
-      const s = rows.find(x => String(x.id) === String(sid));
-      openEditor(parseInt(sid, 10), s ? s.title : "故事 #" + sid);
-    }).catch(() => openEditor(parseInt(sid, 10), "故事 #" + sid));
-  } else {
-    showPicker();
-  }
+  showPicker();
 });
 </script>
 </body>
