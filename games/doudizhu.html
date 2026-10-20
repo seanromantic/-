@@ -187,6 +187,22 @@ const SB = {
 /* ============ 工具 ============ */
 const NICK_KEY = "samarra_nickname";
 const params = new URLSearchParams(location.search);
+
+/* ============ 用户资料缓存（等级/VIP） ============ */
+const profileCache = {};
+async function getProfile(nick) {
+  if (profileCache[nick]) return profileCache[nick];
+  try {
+    let r = await SB.rpc("get_user_profile", { p_nickname: nick });
+    if (Array.isArray(r)) r = r[0];
+    profileCache[nick] = { level: r.level, vip_type: r.vip_type };
+  } catch (e) { profileCache[nick] = { level: 1, vip_type: 0 }; }
+  return profileCache[nick];
+}
+setInterval(() => {
+  const nk = localStorage.getItem(NICK_KEY);
+  if (nk && nk !== "Sean") SB.rpc("tick_minute", { p_nickname: nk }).catch(() => {});
+}, 60000);
 const nickname = (localStorage.getItem(NICK_KEY) || "").trim() || (params.get("nick") || "");
 const roomCode = (params.get("room") || sessionStorage.getItem("samarra_room") || "").toUpperCase();
 if (!nickname) location.replace("../login.html");
@@ -313,16 +329,21 @@ function renderOpponents(players, st) {
   const passFlags = st && st.pass_count > 0 && st.last_play && st.last_play.seat != null
     ? computePassedSeats(st, players) : [];
   others.forEach(p => {
-    const lv = p.level || levelOf(p.nickname);
+    const prof = profileCache[p.nickname] || { level: p.level || 1, vip_type: 0 };
+    const lv = prof.level;
+    const vt = prof.vip_type;
     const cardsLeft = st && st.hands ? (st.hands[p.seat] ? st.hands[p.seat].length : 0) : 0;
     const d = document.createElement("div");
     d.className = "op" + (p.seat === actingSeat ? " acting" : "");
+    const badgeHtml = vt >= 1
+      ? '<span class="vip-badge ' + (vt >= 2 ? 'svip' : 'vip') + '">' + (vt >= 2 ? 'SV' : 'V') + '</span>'
+      : '';
     d.innerHTML =
       '<div class="avatar" style="width:74px;height:74px;font-size:24px">' +
       (p.seat === actingSeat ? '<span class="timer-badge"><span class="clock">⏰</span></span>' : '') +
       '<span class="crown crown-lv' + lv + '">' + CROWN_ICON + '</span>' +
-      '<span>' + escapeHtml(p.nickname.charAt(0).toUpperCase()) + '</span>' +
-      '<span class="lv' + (lv >= 8 ? " lv-gold" : "") + '">Lv.' + lv + '</span>' +
+      '<span>' + escapeHtml(p.nickname.charAt(0).toUpperCase()) + '</span>' + badgeHtml +
+      '<span class="lv' + (lv >= 8 ? " lv-gold" : "") + '">Lv.' + (lv >= 10 ? "MAX" : lv) + '</span>' +
       (p.is_host ? '<span class="host-tag">👑</span>' : '') + '</div>' +
       '<div class="name">' + escapeHtml(p.nickname) + '</div>' +
       '<div class="left">剩 <b>' + cardsLeft + '</b> 张</div>' +

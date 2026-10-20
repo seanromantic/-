@@ -197,6 +197,27 @@ function setBusy(id, busy, label) {
   b.innerHTML = busy ? '<span class="spin"></span> ' + label : label;
 }
 
+/* ============ 用户资料（等级/VIP） ============ */
+const profileCache = {};
+async function getProfile(nick) {
+  if (profileCache[nick]) return profileCache[nick];
+  try {
+    let r = await SB.rpc("get_user_profile", { p_nickname: nick });
+    if (Array.isArray(r)) r = r[0];
+    profileCache[nick] = { level: r.level, vip_type: r.vip_type, minutes: r.minutes };
+  } catch (e) {
+    profileCache[nick] = { level: 1, vip_type: 0, minutes: 0 };
+  }
+  return profileCache[nick];
+}
+
+/* ============ 心跳：每分钟累计在线时长 ============ */
+setInterval(() => {
+  if (nickname && nickname !== "Sean") {
+    SB.rpc("tick_minute", { p_nickname: nickname }).catch(() => {});
+  }
+}, 60000);
+
 /* ============ 房间视图 ============ */
 function enterRoom(room) {
   roomCode = room.room_code;
@@ -208,7 +229,7 @@ function enterRoom(room) {
   startPoll();
 }
 
-function refreshRoom(room) {
+async function refreshRoom(room) {
   if (!room) return;
   const players = room.players || [];
   const maxN = room.max_players;
@@ -223,6 +244,10 @@ function refreshRoom(room) {
   else if (room.status === "playing") statusEl.textContent = "对局进行中…";
   else statusEl.textContent = players.length + "/" + maxN + " 人已就位";
 
+  /* 拉取所有玩家资料 */
+  const profiles = {};
+  await Promise.all(players.map(async p => { profiles[p.nickname] = await getProfile(p.nickname); }));
+
   const seatsEl = document.getElementById("seats");
   seatsEl.innerHTML = "";
   for (let i = 0; i < maxN; i++) {
@@ -232,18 +257,28 @@ function refreshRoom(room) {
     if (!p) {
       div.innerHTML = '<div class="avatar avatar-empty"><span class="plus">+</span></div><div class="name muted">等待加入</div>';
     } else {
-      const lv = p.level || levelOf(p.nickname);
+      const prof = profiles[p.nickname] || { level: 1, vip_type: 0 };
+      const lv = prof.level;
+      const vt = prof.vip_type;
       const isHost = !!p.is_host;
+      const badgeHtml = vt >= 1
+        ? '<span class="vip-badge ' + (vt >= 2 ? 'svip' : 'vip') + '" data-nick="' + escapeHtml(p.nickname) + '">' + (vt >= 2 ? 'SV' : 'V') + '</span>'
+        : '';
       div.innerHTML =
         '<div class="avatar"><span class="crown crown-lv' + lv + '">' + CROWN_ICON + '</span>' +
-        '<span>' + avatarChar(p.nickname) + '</span>' +
-        '<span class="lv' + (lv >= 8 ? " lv-gold" : "") + '">Lv.' + lv + '</span>' +
+        '<span>' + avatarChar(p.nickname) + '</span>' + badgeHtml +
+        '<span class="lv' + (lv >= 8 ? " lv-gold" : "") + '">Lv.' + (lv >= 10 ? "MAX" : lv) + '</span>' +
         (isHost ? '<span class="host-tag">👑</span>' : '') +
         '</div>' +
         '<div class="name">' + escapeHtml(p.nickname) + (p.nickname === nickname ? ' <span class="you-tag">(你)</span>' : '') + '</div>';
     }
     seatsEl.appendChild(div);
   }
+
+  /* 点击自己头像右下角角标 → 弹 VIP 价目表 */
+  seatsEl.querySelectorAll('.vip-badge').forEach(b => {
+    if (b.dataset.nick === nickname) b.addEventListener("click", openVipModal);
+  });
 
   const startBtn = document.getElementById("startBtn");
   const waitHint = document.getElementById("waitHint");
@@ -299,6 +334,31 @@ function startPoll() {
   }, 1600);
 }
 function stopPoll() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+
+/* ============ VIP 弹窗 ============ */
+async function openVipModal() {
+  let cfg = { vip_price: "¥25/月", svip_price: "¥68/月", vip_desc: "金框头像 · 专属 V 角标", svip_desc: "流光头像框 · 专属 SV 角标" };
+  try {
+    let c = await SB.rpc("get_vip_config", {});
+    if (Array.isArray(c)) c = c[0];
+    if (c) cfg = c;
+  } catch (e) {}
+  const mask = document.createElement("div");
+  mask.className = "vip-modal-mask";
+  mask.innerHTML =
+    '<div class="vip-modal">' +
+    '<span class="close-x" onclick="this.closest(\'.vip-modal-mask\').remove()">×</span>' +
+    '<h2>会员特权</h2>' +
+    '<div class="sub">尊贵身份，从这里开始</div>' +
+    '<div class="vip-tier"><div class="row"><span class="name">👑 VIP</span><span class="price">' + escapeHtml(cfg.vip_price) + '</span></div>' +
+    '<div class="desc">' + escapeHtml(cfg.vip_desc) + '</div></div>' +
+    '<div class="vip-tier svip"><div class="row"><span class="name">💎 SVIP</span><span class="price">' + escapeHtml(cfg.svip_price) + '</span></div>' +
+    '<div class="desc">' + escapeHtml(cfg.svip_desc) + '</div></div>' +
+    '<button class="contact-btn" onclick="toast(\'请联系管理员开通：Sean\',\'ok\'); this.closest(\'.vip-modal-mask\').remove()">联系管理员开通</button>' +
+    '</div>';
+  mask.addEventListener("click", e => { if (e.target === mask) mask.remove(); });
+  document.body.appendChild(mask);
+}
 
 /* ============ 启动 ============ */
 if (!nickname) { location.replace("../login.html"); }

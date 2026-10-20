@@ -56,6 +56,27 @@
 
   <div class="divider"></div>
 
+  <h3>💎 VIP 价格配置</h3>
+  <div class="card mt-16" style="max-width:640px">
+    <div class="row" style="gap:12px; flex-wrap:wrap">
+      <div class="field" style="flex:1;min-width:160px"><label>VIP 价格</label><input class="input" id="cfgVipPrice" placeholder="¥25/月"></div>
+      <div class="field" style="flex:1;min-width:160px"><label>SVIP 价格</label><input class="input" id="cfgSvipPrice" placeholder="¥68/月"></div>
+    </div>
+    <div class="field"><label>VIP 特权文案</label><input class="input" id="cfgVipDesc"></div>
+    <div class="field"><label>SVIP 特权文案</label><input class="input" id="cfgSvipDesc"></div>
+    <button class="btn btn-primary" id="saveVipCfgBtn">保存配置</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="row-between">
+    <h3>👥 用户管理</h3>
+    <button class="btn btn-sm btn-ghost" id="refreshUsersBtn">刷新</button>
+  </div>
+  <div class="admin-list mt-16" id="userList"></div>
+
+  <div class="divider"></div>
+
   <div class="row-between">
     <h3>故事列表</h3>
     <div class="row">
@@ -279,8 +300,78 @@ document.getElementById("roomList").addEventListener("click", e => {
 
 document.getElementById("refreshRoomsBtn").addEventListener("click", loadRooms);
 
+/* ============ VIP 配置 ============ */
+async function loadVipCfg() {
+  try {
+    let c = await SB.rpc("get_vip_config", {});
+    if (Array.isArray(c)) c = c[0];
+    if (c) {
+      document.getElementById("cfgVipPrice").value = c.vip_price || "";
+      document.getElementById("cfgSvipPrice").value = c.svip_price || "";
+      document.getElementById("cfgVipDesc").value = c.vip_desc || "";
+      document.getElementById("cfgSvipDesc").value = c.svip_desc || "";
+    }
+  } catch (e) { toast("VIP 配置加载失败：" + e.message, "err"); }
+}
+document.getElementById("saveVipCfgBtn").addEventListener("click", async () => {
+  try {
+    await SB.rpc("admin_set_vip_config", {
+      p_admin: nickname,
+      p_vip_price: document.getElementById("cfgVipPrice").value.trim(),
+      p_svip_price: document.getElementById("cfgSvipPrice").value.trim(),
+      p_vip_desc: document.getElementById("cfgVipDesc").value.trim(),
+      p_svip_desc: document.getElementById("cfgSvipDesc").value.trim()
+    });
+    toast("VIP 配置已保存", "ok");
+  } catch (e) { toast(e.message, "err"); }
+});
+
+/* ============ 用户管理 ============ */
+async function loadUsers() {
+  const list = document.getElementById("userList");
+  list.innerHTML = "";
+  try {
+    const rows = await SB.rpc("admin_list_users", { p_admin: nickname });
+    if (!rows || !rows.length) {
+      list.innerHTML = '<div class="card muted" style="text-align:center">还没有用户数据</div>';
+      return;
+    }
+    rows.forEach(u => {
+      const d = document.createElement("div");
+      d.className = "admin-item pop-in";
+      const vtOptions = [
+        [0, "普通用户"],
+        [1, "👑 VIP"],
+        [2, "💎 SVIP"],
+      ];
+      let sel = '<select class="input" style="width:auto" data-nick="' + encodeURIComponent(u.nickname) + '">';
+      vtOptions.forEach(([v, label]) => {
+        sel += '<option value="' + v + '"' + (u.vip_type === v ? " selected" : "") + '>' + label + '</option>';
+      });
+      sel += '</select>';
+      const isSean = u.nickname === "Sean";
+      d.innerHTML = '<div class="t">' + escapeHtml(u.nickname) +
+        (isSean ? ' <span style="color:var(--brand);font-size:12px">(超管·最高权限)</span>' : '') +
+        ' <span class="muted" style="font-size:12px">Lv.' + (u.level >= 10 ? "MAX" : u.level) + ' · 在线 ' + u.minutes + ' 分钟</span></div>' +
+        (isSean ? '<span class="muted" style="font-size:12px">不可修改</span>' : sel);
+      list.appendChild(d);
+    });
+  } catch (e) { list.innerHTML = '<div class="card muted" style="text-align:center">加载失败：' + escapeHtml(e.message) + '</div>'; }
+}
+document.getElementById("userList").addEventListener("change", async e => {
+  const sel = e.target.closest("select[data-nick]");
+  if (!sel) return;
+  const target = decodeURIComponent(sel.dataset.nick);
+  const vip = parseInt(sel.value, 10);
+  try {
+    await SB.rpc("admin_set_user_vip", { p_admin: nickname, p_target: target, p_vip_type: vip });
+    toast("已更新 " + target + " 的身份", "ok");
+  } catch (err) { toast(err.message, "err"); loadUsers(); }
+});
+document.getElementById("refreshUsersBtn").addEventListener("click", loadUsers);
+
 /* ============ 启动 ============ */
-guard().then(ok => { if (ok) { loadStories(); loadAdmins(); loadRooms(); } });
+guard().then(ok => { if (ok) { loadStories(); loadAdmins(); loadRooms(); loadVipCfg(); loadUsers(); } });
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

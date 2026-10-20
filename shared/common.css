@@ -322,3 +322,85 @@ body {
   .card-face { width: 38px; height: 54px; font-size: 13px; }
   .bid-box { padding: 24px 18px; }
 }
+
+/* ========== 皇冠 10 阶（新版高级感配色） ========== */
+.crown {
+  position: absolute; top: -10px; left: -8px; font-size: 18px;
+  transform: rotate(-18deg); z-index: 3; line-height: 1;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,.35));
+}
+.crown-lv1  { filter: drop-shadow(0 2px 3px rgba(0,0,0,.4)) brightness(.75) sepia(.5) saturate(2); }
+.crown-lv2  { filter: drop-shadow(0 2px 3px rgba(0,0,0,.35)) brightness(.85) saturate(.7); }
+.crown-lv3  { filter: drop-shadow(0 2px 3px rgba(0,0,0,.3)) brightness(1.1) saturate(.6); }
+.crown-lv4  { filter: drop-shadow(0 2px 4px rgba(255,180,0,.6)) brightness(1.15) saturate(1.3); }
+.crown-lv5  { filter: drop-shadow(0 2px 4px rgba(180,200,255,.6)) brightness(1.2) saturate(.8); }
+.crown-lv6  { filter: drop-shadow(0 2px 4px rgba(46,204,113,.55)) hue-rotate(60deg) brightness(1.1); }
+.crown-lv7  { filter: drop-shadow(0 0 6px rgba(127,231,255,.8)) brightness(1.2) saturate(1.4); }
+.crown-lv8  { filter: drop-shadow(0 0 7px rgba(176,102,224,.8)) hue-rotate(280deg) brightness(1.1); }
+.crown-lv9  { filter: drop-shadow(0 0 8px rgba(255,77,77,.85)) hue-rotate(340deg) brightness(1.15) saturate(1.5); }
+.crown-lv10 {
+  filter: drop-shadow(0 0 10px rgba(245,158,11,.9)) drop-shadow(0 0 18px rgba(168,85,247,.6))
+          brightness(1.2) saturate(1.6);
+  animation: crown-glow 2.2s ease-in-out infinite;
+}
+@keyframes crown-glow {
+  0%,100% { filter: drop-shadow(0 0 8px rgba(245,158,11,.7)) drop-shadow(0 0 14px rgba(168,85,247,.5)) brightness(1.15); }
+  50%     { filter: drop-shadow(0 0 14px rgba(245,158,11,1)) drop-shadow(0 0 24px rgba(168,85,247,.8)) brightness(1.3); }
+}
+
+/* ========== VIP / SVIP 角标（头像右下角小圆圈） ========== */
+.avatar { position: relative; }
+.vip-badge {
+  position: absolute; bottom: -6px; right: -8px; z-index: 4;
+  width: 26px; height: 26px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 900; font-style: italic;
+  cursor: pointer; transition: transform .15s;
+  border: 2px solid #fbbf24;
+  box-shadow: 0 2px 6px rgba(0,0,0,.3);
+}
+.vip-badge:hover { transform: scale(1.12); }
+.vip-badge.vip {
+  background: linear-gradient(135deg, #dc2626, #991b1b);
+  color: #fff;
+}
+.vip-badge.svip {
+  background: linear-gradient(135deg, #1f2937, #000);
+  border-color: #fcd34d;
+  color: #fde68a;
+  text-shadow: 0 0 6px rgba(252,211,77,.6);
+  box-shadow: 0 2px 8px rgba(252,211,77,.4);
+}
+
+/* ========== VIP 弹窗 ========== */
+.vip-modal-mask {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(15,15,25,.6); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; animation: fade-in .2s ease;
+}
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+.vip-modal {
+  background: linear-gradient(160deg, #fff, #fff8ec);
+  border-radius: 22px; padding: 28px 26px; max-width: 420px; width: 100%;
+  box-shadow: 0 20px 60px rgba(0,0,0,.3); animation: pop-in .3s cubic-bezier(.2,.9,.3,1.3);
+}
+.vip-modal h2 { text-align: center; font-size: 22px; margin-bottom: 4px;
+  background: linear-gradient(135deg, #b45309, #f59e0b); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.vip-modal .sub { text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+.vip-tier {
+  border-radius: 16px; padding: 16px; margin-bottom: 12px; border: 1.5px solid #fde68a;
+  background: #fff;
+}
+.vip-tier.svip { border-color: #fcd34d; background: linear-gradient(135deg, #1f2937, #000); color: #fde68a; }
+.vip-tier .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.vip-tier .name { font-weight: 900; font-size: 17px; }
+.vip-tier .price { font-weight: 900; color: #dc2626; font-size: 18px; }
+.vip-tier.svip .price { color: #fcd34d; }
+.vip-tier .desc { font-size: 13px; line-height: 1.6; opacity: .85; }
+.vip-modal .contact-btn {
+  width: 100%; margin-top: 8px; padding: 14px; border: none; border-radius: 999px;
+  background: linear-gradient(135deg, #f59e0b, #b45309); color: #fff; font-weight: 800; font-size: 15px;
+  cursor: pointer; box-shadow: 0 6px 18px rgba(245,158,11,.4);
+}
+.vip-modal .close-x { float: right; cursor: pointer; color: var(--muted); font-size: 20px; line-height: 1; }
