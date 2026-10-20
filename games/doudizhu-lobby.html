@@ -337,6 +337,8 @@ function startPoll() {
   pollTimer = setInterval(async () => {
     if (!roomCode) return;
     try {
+      /* 顺手清理 6 小时无人的僵尸房间 */
+      SB.rpc("cleanup_stale_rooms", {}).catch(() => {});
       const room = await SB.rpc("get_room", { p_room_code: roomCode });
       if (!room) { sessionStorage.removeItem(ROOM_KEY); roomCode = ""; showLobby(); toast("房间已解散", "err"); return; }
       refreshRoom(room);
