@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>故事大厅 · SAMARRA</title>
+<link rel="stylesheet" href="../shared/common.css">
+<style>
+  .story-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-top: 20px; }
+  .story-card { border-radius: 18px; overflow: hidden; cursor: pointer; transition: transform .2s, box-shadow .2s; background:#fff; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+  .story-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+  .story-cover { height: 120px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:28px; font-weight:900; }
+  .story-body { padding: 14px; }
+  .story-title { font-weight:800; font-size:16px; margin-bottom:6px; }
+  .story-desc { font-size:13px; color:var(--muted); line-height:1.5; margin-bottom:10px; min-height:38px; }
+  .progress-bar { height:6px; background:#f3f4f6; border-radius:999px; overflow:hidden; margin-top:6px; }
+  .progress-fill { height:100%; background:linear-gradient(90deg,#4f46e5,#7c3aed); border-radius:999px; transition:width .3s; }
+  .progress-text { font-size:11px; color:var(--muted); margin-top:4px; }
+</style>
+</head>
+<body>
+<canvas class="fx-layer" id="fx"></canvas>
+<div class="toast-wrap" id="toasts"></div>
+
+<header class="topbar">
+  <div class="brand">📖 故事大厅 · SAMARRA</div>
+  <div class="who">
+    <span id="whoNick" class="muted">—</span>
+    <a class="btn btn-sm btn-ghost" href="../index.html">返回大厅</a>
+  </div>
+</header>
+
+<div class="container">
+  <h2 style="margin-bottom:6px">选择一个故事开始冒险</h2>
+  <p class="muted" style="font-size:13px">你的选择会改变结局，进度自动保存</p>
+  <div class="story-grid" id="storyGrid"></div>
+</div>
+
+<script>
+const SB = {
+  url: "https://djvsugbstenltenktpwv.supabase.co",
+  key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqdnN1Z2JzdGVubHRlbmt0cHd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2OTI0MDcsImV4cCI6MjEwNzI2ODQwN30.XMBE7NCridZ34BG7LyRiHQRZP0SkVI209uQhqSgcIAs",
+  async rpc(fn, body) {
+    const r = await fetch(this.url + "/rest/v1/rpc/" + fn, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": this.key, "Authorization": "Bearer " + this.key, "Prefer": "return=representation" },
+      body: JSON.stringify(body || {})
+    });
+    if (!r.ok) { let t=""; try{t=(await r.json()).message||"";}catch(e){} throw new Error(t||("HTTP "+r.status)); }
+    const txt = await r.text(); return txt ? JSON.parse(txt) : null;
+  }
+};
+const nickname = (localStorage.getItem("samarra_nickname")||"").trim();
+if (!nickname) location.replace("../login.html");
+document.getElementById("whoNick").textContent = nickname;
+
+/* 粒子 */
+(function(){
+  const MAX=60,BURST=12; const cv=document.getElementById("fx"); const ctx=cv.getContext("2d");
+  let parts=[],W=0,H=0; function rz(){W=cv.width=innerWidth;H=cv.height=innerHeight;} rz(); addEventListener("resize",rz);
+  addEventListener("click",function(e){ for(let i=0;i<BURST;i++){ if(parts.length>=MAX)parts.shift(); const a=Math.random()*6.28,v=90+Math.random()*160; parts.push({x:e.clientX,y:e.clientY,vx:Math.cos(a)*v,vy:Math.sin(a)*v-60,life:1,size:2+Math.random()*3.5,color:["#4f46e5","#7c3aed","#f59e0b","#10b981","#ef4444"][(Math.random()*5)|0]});}});
+  (function loop(){ ctx.clearRect(0,0,W,H); parts=parts.filter(p=>p.life>0); for(const p of parts){p.x+=p.vx*.016;p.y+=p.vy*.016;p.vy+=260*.016;p.life-=.025;ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size*p.life,0,6.28);ctx.fill();} ctx.globalAlpha=1; requestAnimationFrame(loop);})();
+})();
+
+function escapeHtml(s){ return String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+async function loadStories() {
+  const grid = document.getElementById("storyGrid");
+  try {
+    const rows = await SB.rpc("list_stories", {});
+    grid.innerHTML = "";
+    if (!rows || !rows.length) { grid.innerHTML = '<div class="card muted" style="grid-column:1/-1;text-align:center">暂无故事</div>'; return; }
+    for (const s of rows) {
+      /* 查进度：该玩家已访问的节点数 */
+      let visited = 0, pct = 0;
+      try {
+        const prog = await SB.rpc("get_story_progress", { p_nickname: nickname, p_story_id: s.id });
+        if (prog) visited = prog.visited_count || 0;
+      } catch (e) {}
+      const total = s.node_count || 1;
+      pct = Math.min(100, Math.round(visited / total * 100));
+      const card = document.createElement("div");
+      card.className = "story-card pop-in";
+      card.innerHTML =
+        '<div class="story-cover" style="background:linear-gradient(135deg,' + escapeHtml(s.cover_color||"#6366f1") + ',#7c3aed)">📖</div>' +
+        '<div class="story-body">' +
+          '<div class="story-title">' + escapeHtml(s.title) + '</div>' +
+          '<div class="story-desc">' + escapeHtml(s.description || "暂无简介") + '</div>' +
+          '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
+          '<div class="progress-text">探索进度 ' + visited + '/' + total + ' 节点 · ' + pct + '%</div>' +
+        '</div>';
+      card.addEventListener("click", () => { location.href = "story.html?story=" + s.id; });
+      grid.appendChild(card);
+    }
+  } catch (e) {
+    grid.innerHTML = '<div class="card muted" style="grid-column:1/-1;text-align:center">加载失败：' + escapeHtml(e.message) + '</div>';
+  }
+}
+loadStories();
+</script>
+</body>
+</html>

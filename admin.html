@@ -77,6 +77,19 @@
 
   <div class="divider"></div>
 
+  <h3>🎁 全服发奖</h3>
+  <div class="card mt-8">
+    <div class="field"><label>邮件标题</label><input class="input" id="mailTitle" placeholder="如：维护补偿"></div>
+    <div class="field"><label>邮件内容</label><input class="input" id="mailContent" placeholder="如：感谢玩家支持"></div>
+    <div class="row">
+      <div class="field" style="flex:1"><label>经验奖励（分钟）</label><input class="input" id="mailMinutes" type="number" value="0" min="0"></div>
+      <div class="field" style="flex:1"><label>SVIP 体验（天）</label><input class="input" id="mailVipDays" type="number" value="0" min="0"></div>
+    </div>
+    <button class="btn btn-primary btn-lg" id="broadcastBtn" style="width:100%">一键发送给全服玩家</button>
+  </div>
+
+  <div class="divider"></div>
+
   <div class="row-between">
     <h3>故事列表</h3>
     <div class="row">
@@ -350,24 +363,33 @@ async function loadUsers() {
       });
       sel += '</select>';
       const isSean = u.nickname === "Sean";
-      const resetBtn = isSean ? '' : ' <button class="btn btn-sm btn-ghost" data-act="reset-pwd" data-nick="' + encodeURIComponent(u.nickname) + '">重置密码为123456</button>';
-      d.innerHTML = '<div class="t">' + escapeHtml(u.nickname) +
+      const resetBtn = isSean ? '' : ' <button class="btn btn-sm btn-ghost" data-act="reset-pwd" data-nick="' + encodeURIComponent(u.nickname) + '">重置密码</button>';
+      const banBtn = isSean ? '' : (u.banned
+        ? ' <button class="btn btn-sm btn-ok" data-act="unban" data-nick="' + encodeURIComponent(u.nickname) + '">解封</button>'
+        : ' <button class="btn btn-sm btn-danger" data-act="ban" data-nick="' + encodeURIComponent(u.nickname) + '">封禁</button>');
+      const banTag = u.banned ? ' <span style="color:#ef4444;font-size:11px;font-weight:700">[已封禁]</span>' : '';
+      d.innerHTML = '<div class="t">' + escapeHtml(u.nickname) + banTag +
         (isSean ? ' <span style="color:var(--brand);font-size:12px">(超管·最高权限)</span>' : '') +
         ' <span class="muted" style="font-size:12px">Lv.' + (u.level >= 10 ? "MAX" : u.level) + ' · 在线 ' + u.minutes + ' 分钟</span></div>' +
-        (isSean ? '<span class="muted" style="font-size:12px">不可修改</span>' : sel + resetBtn);
+        (isSean ? '<span class="muted" style="font-size:12px">不可修改</span>' : sel + resetBtn + banBtn);
       list.appendChild(d);
     });
   } catch (e) { list.innerHTML = '<div class="card muted" style="text-align:center">加载失败：' + escapeHtml(e.message) + '</div>'; }
 }
 document.getElementById("userList").addEventListener("click", async e => {
-  const btn = e.target.closest("button[data-act='reset-pwd']");
+  const btn = e.target.closest("button[data-act='reset-pwd'], button[data-act='ban'], button[data-act='unban']");
   if (!btn) return;
   const target = decodeURIComponent(btn.dataset.nick);
-  if (!confirm("确定将 " + target + " 的密码重置为 123456 ？")) return;
-  try {
-    await SB.rpc("admin_reset_password", { p_admin: nickname, p_target: target });
-    toast("已重置 " + target + " 的密码为 123456", "ok");
-  } catch (err) { toast(err.message, "err"); }
+  const act = btn.dataset.act;
+  if (act === "reset-pwd") {
+    if (!confirm("确定将 " + target + " 的密码重置为 123456 ？")) return;
+    try { await SB.rpc("admin_reset_password", { p_admin: nickname, p_target: target }); toast("已重置密码", "ok"); } catch (err) { toast(err.message, "err"); }
+  } else if (act === "ban") {
+    if (!confirm("确定封禁 " + target + " ？该用户将无法登录")) return;
+    try { await SB.rpc("ban_user", { p_admin: nickname, p_target: target }); toast("已封禁 " + target, "ok"); loadUsers(); } catch (err) { toast(err.message, "err"); }
+  } else if (act === "unban") {
+    try { await SB.rpc("unban_user", { p_admin: nickname, p_target: target }); toast("已解封 " + target, "ok"); loadUsers(); } catch (err) { toast(err.message, "err"); }
+  }
 });
 document.getElementById("userList").addEventListener("change", async e => {
   const sel = e.target.closest("select[data-nick]");
@@ -380,6 +402,18 @@ document.getElementById("userList").addEventListener("change", async e => {
   } catch (err) { toast(err.message, "err"); loadUsers(); }
 });
 document.getElementById("refreshUsersBtn").addEventListener("click", loadUsers);
+document.getElementById("broadcastBtn").addEventListener("click", async () => {
+  const title = document.getElementById("mailTitle").value.trim();
+  const content = document.getElementById("mailContent").value.trim();
+  const mins = parseInt(document.getElementById("mailMinutes").value) || 0;
+  const days = parseInt(document.getElementById("mailVipDays").value) || 0;
+  if (!title) { toast("请输入邮件标题", "err"); return; }
+  if (!confirm("确定发送全服邮件《" + title + "》给所有玩家？")) return;
+  try {
+    const cnt = await SB.rpc("send_broadcast", { p_admin: nickname, p_title: title, p_content: content, p_minutes: mins, p_vip_days: days });
+    toast("已发送给 " + cnt + " 位玩家", "ok");
+  } catch (e) { toast(e.message, "err"); }
+});
 
 /* ============ 启动 ============ */
 guard().then(ok => { if (ok) { loadStories(); loadAdmins(); loadRooms(); loadVipCfg(); loadUsers(); } });
