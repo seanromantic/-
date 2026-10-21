@@ -67,6 +67,15 @@
       <p>敬请期待，后续会陆续加入新玩法。</p>
     </div>
   </div>
+
+  <div class="card mt-16">
+    <h3 style="margin-bottom:12px">🏆 排行榜</h3>
+    <div class="row" style="gap:8px;margin-bottom:12px">
+      <button class="btn btn-sm btn-primary" id="lbLevelBtn">等级榜</button>
+      <button class="btn btn-sm btn-ghost" id="lbTimeBtn">在线榜</button>
+    </div>
+    <div id="leaderboard"></div>
+  </div>
 </div>
 
 <script>
@@ -230,6 +239,32 @@ document.getElementById("tileStory").addEventListener("click", () => {
 });
 document.getElementById("tileSoon").addEventListener("click", () => {
   toast("更多游戏正在开发中，敬请期待", "err");
+});
+
+async function loadLeaderboard(type) {
+  const box = document.getElementById("leaderboard");
+  try {
+    const rows = await SB.rpc("leaderboard", { p_type: type }) || [];
+    if (!rows.length) { box.innerHTML = '<div class="muted" style="text-align:center;padding:10px">暂无数据</div>'; return; }
+    box.innerHTML = rows.map((r, i) => {
+      const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1);
+      const vip = r.vip_type >= 2 ? "💎" : r.vip_type >= 1 ? "👑" : "";
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f3f4f6">' +
+        '<span style="width:28px;text-align:center;font-weight:800">' + medal + '</span>' +
+        '<span style="flex:1;font-weight:600">' + escapeHtml(r.nickname) + ' ' + vip + '</span>' +
+        '<span class="muted" style="font-size:12px">Lv.' + (r.level >= 10 ? "MAX" : r.level) + ' · ' + r.minutes + '分钟</span>' +
+      '</div>';
+    }).join("");
+  } catch (e) { box.innerHTML = '<div class="muted">加载失败</div>'; }
+}
+document.getElementById("lbLevelBtn").addEventListener("click", () => loadLeaderboard("level"));
+document.getElementById("lbTimeBtn").addEventListener("click", () => loadLeaderboard("time"));
+loadLeaderboard("level");
+
+/* 离开页面清理定时器（防内存泄漏） */
+window.addEventListener("beforeunload", () => {
+  /* 粒子动画循环停止 */
+  if (window._fxRAF) cancelAnimationFrame(window._fxRAF);
 });
 
 initIdentity();
