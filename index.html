@@ -73,6 +73,11 @@
       <h3 style="font-size:20px">文字冒险</h3>
       <p class="muted" style="font-size:13px;margin-top:6px">剧情分支 · 多结局</p>
     </div>
+    <div class="card game-tile" id="tileChess" style="text-align:center;padding:30px 20px;cursor:pointer;transition:transform .2s">
+      <div style="font-size:48px;margin-bottom:10px">♟️</div>
+      <h3 style="font-size:20px">象棋</h3>
+      <p class="muted" style="font-size:13px;margin-top:6px">皮卡鱼AI · 人机对战</p>
+    </div>
   </div>
 </div>
 
@@ -253,6 +258,9 @@ document.getElementById("tileDoudizhu").addEventListener("click", () => {
 });
 document.getElementById("tileStory").addEventListener("click", () => {
   location.href = "games/story-list.html";
+});
+document.getElementById("tileChess").addEventListener("click", () => {
+  location.href = "games/chess.html";
 });
 document.getElementById("tileSoon").addEventListener("click", () => {
   toast("更多游戏正在开发中，敬请期待", "err");
