@@ -69,8 +69,13 @@
 
     <div class="card">
       <div class="seats" id="seats"></div>
-      <div class="row-between" style="margin-top:8px">
+      <div id="spectatorArea" style="margin-top:16px; padding-top:12px; border-top:1px dashed #e5e7eb; display:none">
+        <div class="muted" style="font-size:12px; margin-bottom:8px">👁 观战席（不参与对局）</div>
+        <div id="spectators" style="display:flex; gap:10px; flex-wrap:wrap"></div>
+      </div>
+      <div class="row-between" style="margin-top:12px">
         <button class="btn btn-danger" id="leaveBtn">退出房间</button>
+        <button class="btn btn-ghost" id="standBtn" style="display:none">观战模式</button>
         <button class="btn btn-ok btn-lg" id="startBtn" style="display:none">开始游戏</button>
         <div class="muted" id="waitHint" style="display:none">等待房主开始游戏…</div>
       </div>
@@ -242,12 +247,14 @@ function enterRoom(room) {
 async function refreshRoom(room) {
   if (!room) return;
   const players = room.players || [];
+  const spectators = room.spectators || [];
   const maxN = room.max_players;
   mySeat = -1;
   for (let i = 0; i < players.length; i++) {
     if (players[i].nickname === nickname) { mySeat = i; break; }
   }
   const me = players.find(p => p.nickname === nickname) || null;
+  const iAmSpectator = !me && spectators.some(s => s.nickname === nickname);
 
   const statusEl = document.getElementById("roomStatus");
   if (room.status === "ended") statusEl.textContent = "本局已结束";
@@ -255,8 +262,9 @@ async function refreshRoom(room) {
   else statusEl.textContent = players.length + "/" + maxN + " 人已就位";
 
   /* 拉取所有玩家资料 */
+  const allNames = [...players.map(p => p.nickname), ...spectators.map(s => s.nickname)];
   const profiles = {};
-  await Promise.all(players.map(async p => { profiles[p.nickname] = await getProfile(p.nickname); }));
+  await Promise.all(allNames.map(async n => { profiles[n] = await getProfile(n); }));
 
   const seatsEl = document.getElementById("seats");
   seatsEl.innerHTML = "";
@@ -265,7 +273,20 @@ async function refreshRoom(room) {
     const div = document.createElement("div");
     div.className = "seat" + (p && p.nickname === nickname ? " you" : "");
     if (!p) {
-      div.innerHTML = '<div class="avatar avatar-empty"><span class="plus">+</span></div><div class="name muted">等待加入</div>';
+      /* 空位：观战者可以点加入座位 */
+      const canSit = iAmSpectator;
+      div.innerHTML = '<div class="avatar avatar-empty"><span class="plus">+</span></div>' +
+        '<div class="name muted">等待加入</div>' +
+        (canSit ? '<button class="btn btn-sm btn-primary sit-here" style="margin-top:6px">加入座位</button>' : '');
+      if (canSit) {
+        div.querySelector('.sit-here').addEventListener("click", async () => {
+          try {
+            const r = await SB.rpc("sit_down", { p_room_code: roomCode, p_nickname: nickname, p_level: levelOf(nickname) });
+            toast("已入座", "ok");
+            refreshRoom(r);
+          } catch (e) { toast(e.message, "err"); }
+        });
+      }
     } else {
       const prof = profiles[p.nickname] || { level: 1, vip_type: 0 };
       const lv = prof.level;
@@ -285,10 +306,42 @@ async function refreshRoom(room) {
     seatsEl.appendChild(div);
   }
 
+  /* 观战席 */
+  const specArea = document.getElementById("spectatorArea");
+  const specEl = document.getElementById("spectators");
+  if (spectators.length) {
+    specArea.style.display = "";
+    specEl.innerHTML = "";
+    spectators.forEach(s => {
+      const prof = profiles[s.nickname] || { level: 1, vip_type: 0 };
+      const chip = document.createElement("div");
+      chip.style.cssText = "display:flex;align-items:center;gap:6px;padding:6px 12px;background:#f9fafb;border-radius:999px;font-size:13px";
+      chip.innerHTML = "👁 " + escapeHtml(s.nickname) + ' <span class="muted" style="font-size:11px">Lv.' + (prof.level >= 10 ? "MAX" : prof.level) + '</span>';
+      specEl.appendChild(chip);
+    });
+  } else {
+    specArea.style.display = "none";
+  }
+
   /* 点击自己头像右下角角标 → 弹 VIP 价目表 */
   seatsEl.querySelectorAll('.vip-badge').forEach(b => {
     if (b.dataset.nick === nickname) b.addEventListener("click", openVipModal);
   });
+
+  /* 站起观战按钮：已入座的非房主可以点 */
+  const standBtn = document.getElementById("standBtn");
+  if (me && !me.is_host && room.status === "waiting") {
+    standBtn.style.display = "";
+    standBtn.onclick = async () => {
+      try {
+        const r = await SB.rpc("leave_seat", { p_room_code: roomCode, p_nickname: nickname });
+        toast("已转为观战", "ok");
+        refreshRoom(r);
+      } catch (e) { toast(e.message, "err"); }
+    };
+  } else {
+    standBtn.style.display = "none";
+  }
 
   const startBtn = document.getElementById("startBtn");
   const waitHint = document.getElementById("waitHint");
