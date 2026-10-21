@@ -37,6 +37,7 @@
 
   <div class="divider"></div>
 
+  <div id="superSection1">
   <div class="row-between">
     <h3>👥 管理员管理</h3>
     <div class="row">
@@ -45,6 +46,7 @@
     </div>
   </div>
   <div class="admin-list mt-16" id="adminList"></div>
+  </div>
 
   <div class="divider"></div>
 
@@ -77,6 +79,7 @@
 
   <div class="divider"></div>
 
+  <div id="superSection2">
   <h3>🎁 全服发奖</h3>
   <div class="card mt-8">
     <div class="field"><label>邮件标题</label><input class="input" id="mailTitle" placeholder="如：维护补偿"></div>
@@ -86,6 +89,7 @@
       <div class="field" style="flex:1"><label>SVIP 体验（天）</label><input class="input" id="mailVipDays" type="number" value="0" min="0"></div>
     </div>
     <button class="btn btn-primary btn-lg" id="broadcastBtn" style="width:100%">一键发送给全服玩家</button>
+  </div>
   </div>
 
   <div class="divider"></div>
@@ -416,7 +420,17 @@ document.getElementById("broadcastBtn").addEventListener("click", async () => {
 });
 
 /* ============ 启动 ============ */
-guard().then(ok => { if (ok) { loadStories(); loadAdmins(); loadRooms(); loadVipCfg(); loadUsers(); } });
+guard().then(ok => {
+  if (!ok) return;
+  /* 权限分级：Sean 是超管看全部，普通管理员隐藏高危模块 */
+  const isSuper = nickname === "Sean";
+  if (!isSuper) {
+    document.getElementById("superSection1").style.display = "none";
+    document.getElementById("superSection2").style.display = "none";
+    document.title = "管理后台 · SAMARRA";
+  }
+  loadStories(); loadAdmins(); loadRooms(); loadVipCfg(); loadUsers();
+});
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

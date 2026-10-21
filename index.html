@@ -164,7 +164,10 @@ async function initIdentity() {
   document.getElementById("myAvatarChar").textContent = nickname[0].toUpperCase();
   try {
     const ok = await SB.rpc("is_admin", { p_nickname: nickname });
-    if (ok) document.getElementById("adminMenuItem").style.display = "";
+    if (ok) {
+      document.getElementById("adminMenuItem").style.display = "";
+      document.getElementById("adminMenuItem").textContent = nickname === "Sean" ? "🛠 超管后台" : "🛠 管理后台";
+    }
   } catch (e) {}
   /* 查资料：等级 + SVIP */
   try {
