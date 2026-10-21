@@ -200,6 +200,8 @@ async function initIdentity() {
       if (act === "admin") location.href = "admin.html";
     });
   });
+  /* 点头像打开个人主页 */
+  document.getElementById("myAvatar").addEventListener("click", () => openProfileModal(nickname));
 }
 
 async function loadMails() {
@@ -386,6 +388,51 @@ async function openFriendDrawer() {
       div.remove();
     });
   } catch (e) {}
+}
+
+/* ============ 个人主页弹窗 ============ */
+async function openProfileModal(pNick) {
+  const div = document.createElement("div");
+  div.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center";
+  div.onclick = e => { if (e.target === div) div.remove(); };
+  div.innerHTML = '<div class="card" style="width:380px;max-width:90vw;text-align:center;padding:30px;position:relative">' +
+    '<button style="position:absolute;top:12px;right:16px;border:none;background:none;font-size:20px;cursor:pointer;color:#999" onclick="this.closest(\'.card\').parentElement.remove()">×</button>' +
+    '<div style="width:90px;height:90px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:900;margin:0 auto 12px;position:relative">' +
+      '<span>' + escapeHtml(pNick[0].toUpperCase()) + '</span>' +
+      '<span id="pCrown" style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:28px;display:none">👑</span>' +
+      '<span id="pVip" style="position:absolute;bottom:-4px;right:-4px;width:28px;height:28px;border-radius:50%;background:#111;color:#ffd700;font-size:11px;display:none;align-items:center;justify-content:center;border:3px solid #fff;font-weight:900">SV</span>' +
+    '</div>' +
+    '<h2 style="margin-bottom:4px">' + escapeHtml(pNick) + '</h2>' +
+    '<div id="pLevel" class="muted" style="font-size:13px;margin-bottom:16px">Lv.1</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">' +
+      '<div style="background:#f8f9ff;border-radius:12px;padding:12px"><div style="font-size:20px;font-weight:900;color:#4f46e5">—</div><div class="muted" style="font-size:12px">斗地主胜场</div></div>' +
+      '<div style="background:#f8f9ff;border-radius:12px;padding:12px"><div style="font-size:20px;font-weight:900;color:#7c3aed" id="pMinutes">0</div><div class="muted" style="font-size:12px">在线分钟</div></div>' +
+    '</div>' +
+    '<div id="pActions" style="display:flex;gap:8px;justify-content:center"></div>' +
+  '</div>';
+  document.body.appendChild(div);
+  try {
+    const prof = await SB.rpc("get_profile", { p_nickname: pNick });
+    if (prof) {
+      div.querySelector("#pLevel").textContent = "Lv." + (prof.level >= 10 ? "MAX" : prof.level);
+      div.querySelector("#pMinutes").textContent = prof.minutes || 0;
+      if (prof.level >= 10) div.querySelector("#pCrown").style.display = "block";
+      if (prof.vip_type >= 2) div.querySelector("#pVip").style.display = "flex";
+    }
+  } catch (e) {}
+  const actions = div.querySelector("#pActions");
+  if (pNick === nickname) {
+    actions.innerHTML = '<button class="btn btn-ghost" onclick="this.closest(\'.card\').parentElement.remove()">关闭</button>';
+  } else {
+    actions.innerHTML =
+      '<button class="btn btn-primary" id="pAddFriend">➕ 加好友</button>' +
+      (nickname === "Sean" ? '<button class="btn btn-ghost" onclick="location.href=\'admin.html\'">🛠 管理该用户</button>' : '');
+    const bf = actions.querySelector("#pAddFriend");
+    if (bf) bf.onclick = async () => {
+      await SB.rpc("add_friend", { p_nickname: nickname, p_friend: pNick });
+      toast("好友请求已发送", "ok");
+    };
+  }
 }
 
 initIdentity();
