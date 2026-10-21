@@ -83,6 +83,7 @@
   <div class="editor-side">
     <div class="form-title"><span>编辑节点</span>
       <span class="row">
+        <button class="btn btn-sm btn-ghost" id="newEndBtn">🏁 添加结局</button>
         <button class="btn btn-sm btn-ghost" id="newNodeBtn">＋ 新建节点</button>
         <button class="btn btn-sm btn-danger" id="delNodeBtn">删除</button>
       </span>
@@ -414,6 +415,20 @@ async function openEditor(id, title) {
     saveNode(n);
     render();
     selectNode(k);
+  });
+  document.getElementById("newEndBtn").addEventListener("click", () => {
+    const key = prompt("结局节点 Key（如 ending_good / ending_bad）：", "ending_" + (nodes.length + 1));
+    if (!key) return;
+    const k = key.trim();
+    if (nodes.some(n => n.node_key === k)) { toast("节点 Key 已存在", "err"); return; }
+    const n = { node_key: k, content: "【结局】请在此编写结局描述……", option_a: "", target_a: "", option_b: "", target_b: "",
+      pos_x: 600 + nodes.length * 60,
+      pos_y: 300 + (nodes.length % 3) * 100 };
+    nodes.push(n);
+    saveNode(n);
+    render();
+    selectNode(k);
+    toast("已添加结局节点", "ok");
   });
 }
 
