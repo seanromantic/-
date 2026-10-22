@@ -55,15 +55,15 @@
     </div>
     <span id="nickLabel">—</span>
     <span id="myLevel" style="font-size:11px;color:var(--muted);margin-left:6px">Lv.MAX</span>
-    <button class="btn btn-sm btn-ghost" id="friendBtn" title="好友" style="margin-left:10px">👥</button>
-    <button class="btn btn-sm btn-ghost" id="mailBtn" title="邮件">📬<span id="mailBadge" style="display:none;background:#ef4444;color:#fff;border-radius:999px;padding:1px 6px;font-size:11px;margin-left:2px">0</span></button>
+    <button class="btn btn-sm btn-ghost" id="mailBtn" title="邮件" style="margin-left:10px">📬<span id="mailBadge" style="display:none;background:#ef4444;color:#fff;border-radius:999px;padding:1px 6px;font-size:11px;margin-left:2px">0</span></button>
     <button class="btn btn-sm btn-ghost" id="settingsBtn" title="菜单">⚙️</button>
   </div>
 </header>
 
 <!-- 齿轮下拉菜单 -->
 <div id="settingsMenu" style="display:none;position:fixed;top:60px;right:16px;background:#fff;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.15);z-index:200;overflow:hidden;min-width:180px">
-  <div class="menu-item" data-action="admin" id="adminMenuItem" style="display:none;padding:12px 16px;cursor:pointer;font-size:14px">🛠 管理后台</div>
+  <div class="menu-item" data-action="home" style="padding:12px 16px;cursor:pointer;font-size:14px">🏠 返回主页</div>
+  <div class="menu-item" data-action="admin" id="adminMenuItem" style="display:none;padding:12px 16px;cursor:pointer;font-size:14px;border-top:1px solid #f3f4f6">🛠 管理后台</div>
   <div class="menu-item" data-action="logout" style="padding:12px 16px;cursor:pointer;font-size:14px;color:#ef4444;border-top:1px solid #f3f4f6">退出登录</div>
 </div>
 
@@ -181,7 +181,6 @@ async function initIdentity() {
 
   /* 第二步：立即绑定按钮事件（不等 Supabase） */
   document.getElementById("mailBtn").addEventListener("click", openMailModal);
-  document.getElementById("friendBtn").addEventListener("click", openFriendDrawer);
   document.getElementById("settingsBtn").addEventListener("click", e => {
     e.stopPropagation();
     const m = document.getElementById("settingsMenu");
@@ -362,45 +361,6 @@ worldBtn.addEventListener("click", () => {
   };
 });
 
-/* ============ 好友抽屉 ============ */
-async function openFriendDrawer() {
-  const div = document.createElement("div");
-  div.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;display:flex;align-items:center;justify-content:center";
-  div.onclick = e => { if (e.target === div) div.remove(); };
-  div.innerHTML = '<div class="card" style="width:360px;max-width:90vw;max-height:80vh;overflow-y:auto">' +
-    '<h3 style="margin-bottom:12px">👥 我的好友</h3>' +
-    '<div id="friendList"><div class="muted" style="text-align:center;padding:20px">加载中…</div></div>' +
-    '<div class="divider"></div>' +
-    '<h4 style="margin-bottom:8px">📨 好友请求</h4>' +
-    '<div id="reqList"><div class="muted" style="font-size:13px">加载中…</div></div>' +
-  '</div>';
-  document.body.appendChild(div);
-  try {
-    const friends = await SB.rpc("list_friends", { p_nickname: nickname }) || [];
-    div.querySelector("#friendList").innerHTML = friends.length
-      ? friends.map(f => '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f3f4f6">' +
-          '<span style="width:32px;height:32px;border-radius:50%;background:#6366f1;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">' + escapeHtml(f.nickname[0].toUpperCase()) + '</span>' +
-          '<span style="flex:1;font-weight:600">' + escapeHtml(f.nickname) + ' ' + (f.vip_type >= 2 ? '💎' : f.vip_type >= 1 ? '👑' : '') + '</span>' +
-          '<span class="muted" style="font-size:12px">Lv.' + (f.level >= 10 ? "MAX" : f.level) + '</span>' +
-        '</div>').join("")
-      : '<div class="muted" style="text-align:center;padding:20px">还没有好友</div>';
-  } catch (e) {}
-  try {
-    const reqs = await SB.rpc("list_friend_requests", { p_nickname: nickname }) || [];
-    div.querySelector("#reqList").innerHTML = reqs.length
-      ? reqs.map(r => '<div style="display:flex;align-items:center;gap:8px;padding:6px 0">' +
-          '<span style="flex:1;font-size:13px">💌 ' + escapeHtml(r.nickname) + ' 请求加你</span>' +
-          '<button class="btn btn-sm btn-primary" data-accept="' + escapeHtml(r.nickname) + '">同意</button>' +
-        '</div>').join("")
-      : '<div class="muted" style="font-size:13px">暂无新请求</div>';
-    div.querySelectorAll("[data-accept]").forEach(b => b.onclick = async () => {
-      await SB.rpc("accept_friend", { p_nickname: nickname, p_friend: b.dataset.accept });
-      toast("已添加好友", "ok");
-      div.remove();
-    });
-  } catch (e) {}
-}
-
 /* ============ 个人主页弹窗 ============ */
 async function openProfileModal(pNick) {
   const div = document.createElement("div");
@@ -454,7 +414,6 @@ if (nickname) {
 }
 /* 第二步：立即绑按钮事件（不管有没有登录都绑） */
 document.getElementById("mailBtn").addEventListener("click", openMailModal);
-document.getElementById("friendBtn").addEventListener("click", openFriendDrawer);
 document.getElementById("settingsBtn").addEventListener("click", e => {
   e.stopPropagation();
   const m = document.getElementById("settingsMenu");
@@ -466,6 +425,7 @@ document.querySelectorAll(".menu-item").forEach(item => {
     const act = item.dataset.action;
     if (act === "logout") { localStorage.removeItem(NICK_KEY); localStorage.removeItem("samarra_login_time"); location.replace("login.html"); }
     if (act === "admin") location.href = "admin.html";
+    if (act === "home") location.href = "index.html";
   });
 });
 document.getElementById("myAvatar").addEventListener("click", () => openProfileModal(nickname));
