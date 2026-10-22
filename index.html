@@ -408,11 +408,9 @@ async function openProfileModal(pNick) {
 
 /* 页面加载完，所有 DOM 都有了，立即执行 */
 /* 第一步：立即显示昵称头像 */
-if (nickname) {
-  document.getElementById("nickLabel").textContent = nickname;
-  document.getElementById("myAvatarChar").textContent = nickname[0].toUpperCase();
-}
-/* 第二步：立即绑按钮事件（不管有没有登录都绑） */
+document.getElementById("nickLabel").textContent = nickname || "—";
+document.getElementById("myAvatarChar").textContent = nickname ? nickname[0].toUpperCase() : "?";
+/* 第二步：立即绑按钮事件 */
 document.getElementById("mailBtn").addEventListener("click", openMailModal);
 document.getElementById("settingsBtn").addEventListener("click", e => {
   e.stopPropagation();
