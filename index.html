@@ -55,8 +55,8 @@
     </div>
     <span id="nickLabel">—</span>
     <span id="myLevel" style="font-size:11px;color:var(--muted);margin-left:6px">Lv.MAX</span>
-    <button class="btn btn-sm btn-ghost" id="mailBtn" title="邮件" style="margin-left:10px">📬<span id="mailBadge" style="display:none;background:#ef4444;color:#fff;border-radius:999px;padding:1px 6px;font-size:11px;margin-left:2px">0</span></button>
-    <button class="btn btn-sm btn-ghost" id="settingsBtn" title="菜单">⚙️</button>
+    <button class="btn btn-sm btn-ghost" id="mailBtn" title="邮件" style="margin-left:10px" onclick="openMailModal()">📬<span id="mailBadge" style="display:none;background:#ef4444;color:#fff;border-radius:999px;padding:1px 6px;font-size:11px;margin-left:2px">0</span></button>
+    <button class="btn btn-sm btn-ghost" id="settingsBtn" title="菜单" onclick="toggleSettingsMenu(event)">⚙️</button>
   </div>
 </header>
 
@@ -407,6 +407,11 @@ async function openProfileModal(pNick) {
 }
 
 /* 页面加载完，所有 DOM 都有了，立即执行 */
+function toggleSettingsMenu(e) {
+  e.stopPropagation();
+  const m = document.getElementById("settingsMenu");
+  m.style.display = m.style.display === "none" ? "block" : "none";
+}
 /* 第一步：立即显示昵称头像 */
 document.getElementById("nickLabel").textContent = nickname || "—";
 document.getElementById("myAvatarChar").textContent = nickname ? nickname[0].toUpperCase() : "?";
