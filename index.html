@@ -179,6 +179,14 @@ async function initIdentity() {
   if (!nickname) { location.replace("login.html"); return; }
   document.getElementById("nickLabel").textContent = nickname;
   document.getElementById("myAvatarChar").textContent = nickname[0].toUpperCase();
+  document.getElementById("myLevel").textContent = "Lv.MAX";
+  /* 等待 Supabase 客户端就绪 */
+  let waitCount = 0;
+  while (typeof SB === 'undefined' || !SB.rpc) {
+    await new Promise(r => setTimeout(r, 100));
+    waitCount++;
+    if (waitCount > 20) break;
+  }
   try {
     const ok = await SB.rpc("is_admin", { p_nickname: nickname });
     if (ok) {
