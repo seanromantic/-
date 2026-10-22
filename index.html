@@ -4,6 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>大厅 · SAMARRA</title>
+<script>
+// 强制登录检查：没登录直接跳走
+(function() {
+  var n = localStorage.getItem('samarra_nickname');
+  var t = parseInt(localStorage.getItem('samarra_login_time') || '0', 10);
+  if (!n || (Date.now() - t) > 7 * 24 * 3600 * 1000) {
+    localStorage.removeItem('samarra_nickname');
+    localStorage.removeItem('samarra_login_time');
+    location.replace('login.html');
+  }
+})();
+</script>
 <link rel="stylesheet" href="shared/common.css">
 <script src="shared/supabase.js"></script>
 <style>
@@ -442,7 +454,7 @@ async function openProfileModal(pNick) {
   }
 }
 
-window.addEventListener('load', () => setTimeout(initIdentity, 100));
+initIdentity();
 </script>
 </body>
 </html>
