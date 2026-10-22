@@ -365,21 +365,6 @@ worldBtn.addEventListener("click", () => {
   };
 });
 
-/* 战令和商城悬浮按钮 */
-const battleBtn = document.createElement("button");
-battleBtn.textContent = "🎖";
-battleBtn.title = "战令通行证";
-battleBtn.style.cssText = "position:fixed;right:20px;bottom:90px;width:48px;height:48px;border-radius:50%;border:none;background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;font-size:20px;cursor:pointer;box-shadow:0 4px 16px rgba(245,158,11,.4);z-index:50";
-battleBtn.onclick = () => toast("战令系统即将上线", "err");
-document.body.appendChild(battleBtn);
-
-const shopBtn = document.createElement("button");
-shopBtn.textContent = "🛍";
-shopBtn.title = "皮肤商城";
-shopBtn.style.cssText = "position:fixed;right:20px;bottom:150px;width:48px;height:48px;border-radius:50%;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:20px;cursor:pointer;box-shadow:0 4px 16px rgba(16,185,129,.4);z-index:50";
-shopBtn.onclick = () => toast("商城即将上线", "err");
-document.body.appendChild(shopBtn);
-
 /* ============ 好友抽屉 ============ */
 async function openFriendDrawer() {
   const div = document.createElement("div");
@@ -469,27 +454,27 @@ async function openProfileModal(pNick) {
 if (nickname) {
   document.getElementById("nickLabel").textContent = nickname;
   document.getElementById("myAvatarChar").textContent = nickname[0].toUpperCase();
-  /* 第二步：立即绑按钮事件 */
-  document.getElementById("mailBtn").addEventListener("click", openMailModal);
-  document.getElementById("friendBtn").addEventListener("click", openFriendDrawer);
-  document.getElementById("settingsBtn").addEventListener("click", e => {
-    e.stopPropagation();
-    const m = document.getElementById("settingsMenu");
-    m.style.display = m.style.display === "none" ? "block" : "none";
-  });
-  document.addEventListener("click", () => { document.getElementById("settingsMenu").style.display = "none"; });
-  document.querySelectorAll(".menu-item").forEach(item => {
-    item.addEventListener("click", () => {
-      const act = item.dataset.action;
-      if (act === "logout") { localStorage.removeItem(NICK_KEY); localStorage.removeItem("samarra_login_time"); location.replace("login.html"); }
-      if (act === "admin") location.href = "admin.html";
-    });
-  });
-  document.getElementById("myAvatar").addEventListener("click", () => openProfileModal(nickname));
-  document.getElementById("tileDoudizhu").addEventListener("click", () => { location.href = "games/doudizhu-lobby.html"; });
-  document.getElementById("tileStory").addEventListener("click", () => { location.href = "games/story-list.html"; });
-  document.getElementById("tileChess").addEventListener("click", () => { location.href = "games/chess-lobby.html"; });
 }
+/* 第二步：立即绑按钮事件（不管有没有登录都绑） */
+document.getElementById("mailBtn").addEventListener("click", openMailModal);
+document.getElementById("friendBtn").addEventListener("click", openFriendDrawer);
+document.getElementById("settingsBtn").addEventListener("click", e => {
+  e.stopPropagation();
+  const m = document.getElementById("settingsMenu");
+  m.style.display = m.style.display === "none" ? "block" : "none";
+});
+document.addEventListener("click", () => { document.getElementById("settingsMenu").style.display = "none"; });
+document.querySelectorAll(".menu-item").forEach(item => {
+  item.addEventListener("click", () => {
+    const act = item.dataset.action;
+    if (act === "logout") { localStorage.removeItem(NICK_KEY); localStorage.removeItem("samarra_login_time"); location.replace("login.html"); }
+    if (act === "admin") location.href = "admin.html";
+  });
+});
+document.getElementById("myAvatar").addEventListener("click", () => openProfileModal(nickname));
+document.getElementById("tileDoudizhu").addEventListener("click", () => { location.href = "games/doudizhu-lobby.html"; });
+document.getElementById("tileStory").addEventListener("click", () => { location.href = "games/story-list.html"; });
+document.getElementById("tileChess").addEventListener("click", () => { location.href = "games/chess-lobby.html"; });
 /* 第三步：拉 Supabase 数据（异步，不影响按钮） */
 initIdentity();
 </script>
