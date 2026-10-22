@@ -407,6 +407,7 @@ async function openProfileModal(pNick) {
 }
 
 /* 页面加载完，所有 DOM 都有了，立即执行 */
+window.onload = function() {
 /* 第一步：立即显示昵称头像 */
 document.getElementById("nickLabel").textContent = nickname || "—";
 document.getElementById("myAvatarChar").textContent = nickname ? nickname[0].toUpperCase() : "?";
@@ -432,6 +433,7 @@ document.getElementById("tileStory").addEventListener("click", () => { location.
 document.getElementById("tileChess").addEventListener("click", () => { location.href = "games/chess-lobby.html"; });
 /* 第三步：拉 Supabase 数据（异步，不影响按钮） */
 initIdentity();
+};
 </script>
 </body>
 </html>
