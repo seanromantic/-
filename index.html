@@ -37,7 +37,7 @@
   <div class="row" style="gap:12px;align-items:center">
     <div id="myAvatar" style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;cursor:pointer;position:relative" title="个人主页">
       <span id="myAvatarChar">?</span>
-      <span id="myVipBadge" style="display:none;position:absolute;bottom:-2px;right:-2px;width:16px;height:16px;border-radius:50%;background:#111;color:#ffd700;font-size:9px;display:flex;align-items:center;justify-content:center;border:2px solid #fff">SV</span>
+      <span id="myVipBadge" style="display:none;position:absolute;bottom:-3px;right:-3px;width:20px;height:20px;border-radius:50%;background:#111;color:#ffd700;font-size:10px;display:flex;align-items:center;justify-content:center;border:2px solid #fff;font-weight:900">SV</span>
     </div>
     <div>
       <div style="font-weight:800" id="nickLabel">—</div>
@@ -53,7 +53,6 @@
 
 <!-- 齿轮下拉菜单 -->
 <div id="settingsMenu" style="display:none;position:fixed;top:60px;right:16px;background:#fff;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.15);z-index:200;overflow:hidden;min-width:180px">
-  <div class="menu-item" data-action="rank" style="padding:12px 16px;cursor:pointer;font-size:14px">🏆 排行榜</div>
   <div class="menu-item" data-action="admin" id="adminMenuItem" style="display:none;padding:12px 16px;cursor:pointer;font-size:14px">🛠 管理后台</div>
   <div class="menu-item" data-action="logout" style="padding:12px 16px;cursor:pointer;font-size:14px;color:#ef4444;border-top:1px solid #f3f4f6">退出登录</div>
 </div>
@@ -73,7 +72,7 @@
       <h3 style="font-size:20px">文字冒险</h3>
       <p class="muted" style="font-size:13px;margin-top:6px">剧情分支 · 多结局</p>
     </div>
-    <div class="card game-tile" id="tileChess" style="text-align:center;padding:30px 20px;cursor:pointer;transition:transform .2s">
+    <div class="card game-tile" id="tileChess" style="text-align:center;padding:30px 20px;cursor:pointer;transition:transform .2s;grid-column:1/-1;max-width:290px;justify-self:center">
       <div style="font-size:48px;margin-bottom:10px">♟️</div>
       <h3 style="font-size:20px">象棋</h3>
       <p class="muted" style="font-size:13px;margin-top:6px">皮卡鱼AI · 人机对战</p>
@@ -201,7 +200,6 @@ async function initIdentity() {
     item.addEventListener("click", () => {
       const act = item.dataset.action;
       if (act === "logout") { localStorage.removeItem(NICK_KEY); localStorage.removeItem("samarra_login_time"); location.replace("login.html"); }
-      if (act === "rank") openRankModal();
       if (act === "admin") location.href = "admin.html";
     });
   });
