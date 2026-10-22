@@ -442,7 +442,7 @@ async function openProfileModal(pNick) {
   }
 }
 
-initIdentity();
+window.addEventListener('load', () => setTimeout(initIdentity, 100));
 </script>
 </body>
 </html>
