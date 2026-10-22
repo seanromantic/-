@@ -159,6 +159,26 @@ let nickname = (localStorage.getItem(NICK_KEY) || "").trim();
 if (nickname) {
   document.getElementById("nickLabel").textContent = nickname;
   document.getElementById("myAvatarChar").textContent = nickname[0].toUpperCase();
+  /* 立即绑按钮事件 */
+  document.getElementById("mailBtn").addEventListener("click", openMailModal);
+  document.getElementById("friendBtn").addEventListener("click", openFriendDrawer);
+  document.getElementById("settingsBtn").addEventListener("click", e => {
+    e.stopPropagation();
+    const m = document.getElementById("settingsMenu");
+    m.style.display = m.style.display === "none" ? "block" : "none";
+  });
+  document.addEventListener("click", () => { document.getElementById("settingsMenu").style.display = "none"; });
+  document.querySelectorAll(".menu-item").forEach(item => {
+    item.addEventListener("click", () => {
+      const act = item.dataset.action;
+      if (act === "logout") { localStorage.removeItem(NICK_KEY); localStorage.removeItem("samarra_login_time"); location.replace("login.html"); }
+      if (act === "admin") location.href = "admin.html";
+    });
+  });
+  document.getElementById("myAvatar").addEventListener("click", () => openProfileModal(nickname));
+  document.getElementById("tileDoudizhu").addEventListener("click", () => { location.href = "games/doudizhu-lobby.html"; });
+  document.getElementById("tileStory").addEventListener("click", () => { location.href = "games/story-list.html"; });
+  document.getElementById("tileChess").addEventListener("click", () => { location.href = "games/chess-lobby.html"; });
 }
 
 function toast(msg, type) {
