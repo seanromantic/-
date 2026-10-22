@@ -198,20 +198,74 @@ function drawBoard() {
   }
 }
 
-/* 简单走法判定（前端初步，后续接 RPC） */
+/* 完整中国象棋走法判定 */
 function getValidMoves(row, col) {
   const p = board[row][col];
   if (!p) return [];
   const moves = [];
-  // 简化：只演示功能，实际规则后续接 RPC
-  const dirs = p.type === 'r' ? [[1,0],[-1,0],[0,1],[0,-1]] :
-               p.type === 'n' ? [[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[-1,2],[1,-2],[-1,-2]] :
-               [[1,0],[-1,0]];
-  for (const [dr, dc] of dirs) {
-    const nr = row + dr, nc = col + dc;
-    if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
-    if (!board[nr][nc] || board[nr][nc].color !== p.color) {
-      moves.push({ row: nr, col: nc });
+  const me = p.color;
+  const enemy = me === 'r' ? 'b' : 'r';
+  const inBoard = (r, c) => r >= 0 && r < ROWS && c >= 0 && c < COLS;
+  const inPalace = (r, c) => c >= 3 && c <= 5 && ((me === 'r' && r >= 7 && r <= 9) || (me === 'b' && r >= 0 && r <= 2));
+  const crossedRiver = (r) => me === 'r' ? r <= 4 : r >= 5;
+
+  if (p.type === 'k') { // 将/帅：九宫格走一格直线
+    [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr,dc]) => {
+      const nr=row+dr, nc=col+dc;
+      if (inBoard(nr,nc) && inPalace(nr,nc) && (!board[nr][nc] || board[nr][nc].color===enemy)) moves.push({row:nr,col:nc});
+    });
+  } else if (p.type === 'a') { // 士/仕：九宫格走一格斜线
+    [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([dr,dc]) => {
+      const nr=row+dr, nc=col+dc;
+      if (inBoard(nr,nc) && inPalace(nr,nc) && (!board[nr][nc] || board[nr][nc].color===enemy)) moves.push({row:nr,col:nc});
+    });
+  } else if (p.type === 'b') { // 象/相：走田字，不过河
+    [[2,2],[2,-2],[-2,2],[-2,-2]].forEach(([dr,dc]) => {
+      const nr=row+dr, nc=col+dc;
+      if (!inBoard(nr,nc) || crossedRiver(nr)) return;
+      const br=row+dr/2, bc=col+dc/2;
+      if (board[br][bc]) return; // 塞象眼
+      if (!board[nr][nc] || board[nr][nc].color===enemy) moves.push({row:nr,col:nc});
+    });
+  } else if (p.type === 'n') { // 马：走日字，蹩马腿
+    [[2,1,1,0],[2,-1,1,0],[-2,1,-1,0],[-2,-1,-1,0],[1,2,0,1],[-1,2,0,1],[1,-2,0,-1],[-1,-2,0,-1]].forEach(([dr,dc,lr,lc]) => {
+      const nr=row+dr, nc=col+dc;
+      if (!inBoard(nr,nc)) return;
+      if (board[row+lr][col+lc]) return; // 蹩马腿
+      if (!board[nr][nc] || board[nr][nc].color===enemy) moves.push({row:nr,col:nc});
+    });
+  } else if (p.type === 'r') { // 车：直线任意距离
+    [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr,dc]) => {
+      for (let i=1; i<10; i++) {
+        const nr=row+dr*i, nc=col+dc*i;
+        if (!inBoard(nr,nc)) break;
+        if (!board[nr][nc]) moves.push({row:nr,col:nc});
+        else { if (board[nr][nc].color===enemy) moves.push({row:nr,col:nc}); break; }
+      }
+    });
+  } else if (p.type === 'c') { // 炮：直线吃子隔一个
+    [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr,dc]) => {
+      let jumped = false;
+      for (let i=1; i<10; i++) {
+        const nr=row+dr*i, nc=col+dc*i;
+        if (!inBoard(nr,nc)) break;
+        if (!jumped) {
+          if (!board[nr][nc]) moves.push({row:nr,col:nc});
+          else jumped = true;
+        } else {
+          if (board[nr][nc]) { if (board[nr][nc].color===enemy) moves.push({row:nr,col:nc}); break; }
+        }
+      }
+    });
+  } else if (p.type === 'p') { // 兵/卒
+    const forward = me === 'r' ? -1 : 1;
+    const nr = row + forward;
+    if (inBoard(nr,col) && (!board[nr][col] || board[nr][col].color===enemy)) moves.push({row:nr,col});
+    if (crossedRiver(row)) { // 过河后可以左右
+      [[0,1],[0,-1]].forEach(([dr,dc]) => {
+        const nc=col+dc;
+        if (inBoard(row,nc) && (!board[row][nc] || board[row][nc].color===enemy)) moves.push({row,col:nc});
+      });
     }
   }
   return moves;
@@ -298,10 +352,10 @@ document.getElementById('aiBtn').addEventListener('click', async () => {
       }
     };
   }
-  // 发送当前局面
+  // 发送当前局面，浅深度快速出结果
   const fen = boardToFen();
   worker.postMessage({ cmd: 'position', fen });
-  worker.postMessage({ cmd: 'go', depth: 12 });
+  worker.postMessage({ cmd: 'go', depth: 8, movetime: 1000 });
 });
 
 /* 棋盘转 FEN（简化） */
