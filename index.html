@@ -155,6 +155,11 @@ const SB = {
 /* ============ 身份与账号 ============ */
 const NICK_KEY = "samarra_nickname";
 let nickname = (localStorage.getItem(NICK_KEY) || "").trim();
+/* 立即显示昵称头像，不等任何异步 */
+if (nickname) {
+  document.getElementById("nickLabel").textContent = nickname;
+  document.getElementById("myAvatarChar").textContent = nickname[0].toUpperCase();
+}
 
 function toast(msg, type) {
   const w = document.getElementById("toasts");
