@@ -47,18 +47,15 @@
 </div>
 
 <header class="topbar">
-  <div class="row" style="gap:12px;align-items:center">
-    <div id="myAvatar" style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;cursor:pointer;position:relative" title="个人主页">
+  <div class="brand">🎮 SAMARRA</div>
+  <div class="who">
+    <div id="myAvatar" style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:900;cursor:pointer;position:relative;margin-right:6px" title="个人主页">
       <span id="myAvatarChar">?</span>
-      <span id="myVipBadge" style="display:none;position:absolute;bottom:-3px;right:-3px;width:20px;height:20px;border-radius:50%;background:#111;color:#ffd700;font-size:10px;display:flex;align-items:center;justify-content:center;border:2px solid #fff;font-weight:900">SV</span>
+      <span id="myVipBadge" style="display:none;position:absolute;bottom:-3px;right:-3px;width:16px;height:16px;border-radius:50%;background:#111;color:#ffd700;font-size:8px;display:flex;align-items:center;justify-content:center;border:2px solid #fff;font-weight:900">SV</span>
     </div>
-    <div>
-      <div style="font-weight:800" id="nickLabel">—</div>
-      <div style="font-size:11px;color:var(--muted)" id="myLevel">Lv.MAX</div>
-    </div>
-  </div>
-  <div class="row" style="gap:8px">
-    <button class="btn btn-sm btn-ghost" id="friendBtn" title="好友">👥</button>
+    <span id="nickLabel">—</span>
+    <span id="myLevel" style="font-size:11px;color:var(--muted);margin-left:6px">Lv.MAX</span>
+    <button class="btn btn-sm btn-ghost" id="friendBtn" title="好友" style="margin-left:10px">👥</button>
     <button class="btn btn-sm btn-ghost" id="mailBtn" title="邮件">📬<span id="mailBadge" style="display:none;background:#ef4444;color:#fff;border-radius:999px;padding:1px 6px;font-size:11px;margin-left:2px">0</span></button>
     <button class="btn btn-sm btn-ghost" id="settingsBtn" title="菜单">⚙️</button>
   </div>
