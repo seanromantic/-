@@ -36,16 +36,6 @@
 </style>
 </head>
 <body>
-<script>
-/* 立即渲染昵称，不等 Supabase */
-window.addEventListener('DOMContentLoaded', function() {
-  var n = localStorage.getItem('samarra_nickname');
-  if (n) {
-    document.getElementById('nickLabel').textContent = n;
-    document.getElementById('myAvatarChar').textContent = n[0].toUpperCase();
-  }
-});
-</script>
 <canvas class="fx-layer" id="fx"></canvas>
 <div class="toast-wrap" id="toasts"></div>
 
@@ -187,10 +177,30 @@ function levelOf(nick) {
 
 async function initIdentity() {
   if (!nickname) { location.replace("login.html"); return; }
+  /* 第一步：立即显示昵称头像 */
   document.getElementById("nickLabel").textContent = nickname;
   document.getElementById("myAvatarChar").textContent = nickname[0].toUpperCase();
   document.getElementById("myLevel").textContent = "Lv.MAX";
-  /* 等待 Supabase 客户端就绪 */
+
+  /* 第二步：立即绑定按钮事件（不等 Supabase） */
+  document.getElementById("mailBtn").addEventListener("click", openMailModal);
+  document.getElementById("friendBtn").addEventListener("click", openFriendDrawer);
+  document.getElementById("settingsBtn").addEventListener("click", e => {
+    e.stopPropagation();
+    const m = document.getElementById("settingsMenu");
+    m.style.display = m.style.display === "none" ? "block" : "none";
+  });
+  document.addEventListener("click", () => { document.getElementById("settingsMenu").style.display = "none"; });
+  document.querySelectorAll(".menu-item").forEach(item => {
+    item.addEventListener("click", () => {
+      const act = item.dataset.action;
+      if (act === "logout") { localStorage.removeItem(NICK_KEY); localStorage.removeItem("samarra_login_time"); location.replace("login.html"); }
+      if (act === "admin") location.href = "admin.html";
+    });
+  });
+  document.getElementById("myAvatar").addEventListener("click", () => openProfileModal(nickname));
+
+  /* 第三步：等 Supabase 就绪后拉数据 */
   let waitCount = 0;
   while (typeof SB === 'undefined' || !SB.rpc) {
     await new Promise(r => setTimeout(r, 100));
@@ -218,24 +228,6 @@ async function initIdentity() {
     }
   } catch (e) {}
   loadMails();
-  document.getElementById("mailBtn").addEventListener("click", openMailModal);
-  document.getElementById("friendBtn").addEventListener("click", openFriendDrawer);
-  /* 齿轮菜单 */
-  document.getElementById("settingsBtn").addEventListener("click", e => {
-    e.stopPropagation();
-    const m = document.getElementById("settingsMenu");
-    m.style.display = m.style.display === "none" ? "block" : "none";
-  });
-  document.addEventListener("click", () => { document.getElementById("settingsMenu").style.display = "none"; });
-  document.querySelectorAll(".menu-item").forEach(item => {
-    item.addEventListener("click", () => {
-      const act = item.dataset.action;
-      if (act === "logout") { localStorage.removeItem(NICK_KEY); localStorage.removeItem("samarra_login_time"); location.replace("login.html"); }
-      if (act === "admin") location.href = "admin.html";
-    });
-  });
-  /* 点头像打开个人主页 */
-  document.getElementById("myAvatar").addEventListener("click", () => openProfileModal(nickname));
 }
 
 async function loadMails() {
@@ -472,7 +464,8 @@ async function openProfileModal(pNick) {
   }
 }
 
-setTimeout(initIdentity, 300);
+/* 页面加载完立即执行 */
+initIdentity();
 </script>
 </body>
 </html>
