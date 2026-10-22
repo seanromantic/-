@@ -36,6 +36,16 @@
 </style>
 </head>
 <body>
+<script>
+/* 立即渲染昵称，不等 Supabase */
+window.addEventListener('DOMContentLoaded', function() {
+  var n = localStorage.getItem('samarra_nickname');
+  if (n) {
+    document.getElementById('nickLabel').textContent = n;
+    document.getElementById('myAvatarChar').textContent = n[0].toUpperCase();
+  }
+});
+</script>
 <canvas class="fx-layer" id="fx"></canvas>
 <div class="toast-wrap" id="toasts"></div>
 
@@ -53,7 +63,7 @@
       <span id="myVipBadge" style="display:none;position:absolute;bottom:-3px;right:-3px;width:20px;height:20px;border-radius:50%;background:#111;color:#ffd700;font-size:10px;display:flex;align-items:center;justify-content:center;border:2px solid #fff;font-weight:900">SV</span>
     </div>
     <div>
-      <div style="font-weight:800" id="nickLabel"><script>document.write(localStorage.getItem('samarra_nickname') || '—')</script></div>
+      <div style="font-weight:800" id="nickLabel">—</div>
       <div style="font-size:11px;color:var(--muted)" id="myLevel">Lv.MAX</div>
     </div>
   </div>
