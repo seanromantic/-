@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>象棋房间 · SAMARRA</title>
+<link rel="stylesheet" href="../shared/common.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">♟️ 象棋</div>
+  <div class="who"><span id="nickLabel">—</span><a class="btn btn-ghost btn-sm" href="../index.html">返回大厅</a></div>
+</header>
+
+<div class="container">
+  <a href="../index.html" class="muted" style="font-size:13px">← 返回游戏大厅</a>
+
+  <div class="card mt-16">
+    <h3 style="margin-bottom:16px">创建象棋房间</h3>
+    <div class="field">
+      <label>执子选择</label>
+      <div class="row" style="gap:10px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="radio" name="color" value="r" checked> <span style="color:#dc2626;font-weight:700">执红</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="radio" name="color" value="b"> <span style="color:#1f2937;font-weight:700">执黑</span>
+        </label>
+      </div>
+    </div>
+    <div class="field">
+      <label>自定义房间号（可选，6 位数字/字母）</label>
+      <input class="input" id="roomCode" placeholder="留空自动生成" maxlength="6" style="text-transform:uppercase">
+    </div>
+    <button class="btn btn-primary btn-lg" id="createBtn" style="width:100%">创建房间</button>
+  </div>
+
+  <div class="card mt-16">
+    <h3 style="margin-bottom:16px">加入房间</h3>
+    <div class="field">
+      <label>房间号</label>
+      <input class="input" id="joinCode" placeholder="输入房间号" maxlength="6" style="text-transform:uppercase">
+    </div>
+    <button class="btn btn-ghost btn-lg" id="joinBtn" style="width:100%">加入房间</button>
+  </div>
+
+  <div class="card mt-16">
+    <h3 style="margin-bottom:12px">🤖 人机对战</h3>
+    <p class="muted" style="font-size:13px;margin-bottom:12px">不想开房？直接和皮卡鱼 AI 下一盘</p>
+    <button class="btn btn-primary btn-lg" id="aiBtn" style="width:100%;background:linear-gradient(135deg,#f59e0b,#ef4444)">开始人机对战</button>
+  </div>
+</div>
+
+<script src="../shared/supabase.js"></script>
+<script>
+const nickname = localStorage.getItem('samarra_nickname') || 'Sean';
+document.getElementById('nickLabel').textContent = nickname;
+
+document.getElementById('createBtn').onclick = () => {
+  const code = document.getElementById('roomCode').value.trim().toUpperCase();
+  const color = document.querySelector('input[name="color"]:checked').value;
+  location.href = 'chess.html?room=' + (code || 'RANDOM') + '&color=' + color;
+};
+
+document.getElementById('joinBtn').onclick = () => {
+  const code = document.getElementById('joinCode').value.trim().toUpperCase();
+  if (!code) { toast('请输入房间号', 'err'); return; }
+  location.href = 'chess.html?room=' + code + '&color=watch';
+};
+
+document.getElementById('aiBtn').onclick = () => {
+  location.href = 'chess.html?ai=1';
+};
+
+function toast(msg, type) {
+  const d = document.createElement('div');
+  d.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.8);color:#fff;padding:10px 20px;border-radius:999px;z-index:9999;font-size:14px';
+  d.textContent = msg;
+  document.body.appendChild(d);
+  setTimeout(() => d.remove(), 2000);
+}
+</script>
+</body>
+</html>
