@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理后台 · SAMARRA</title>
+<link rel="stylesheet" href="shared/common.css">
+<style>
+  .mega { padding: 26px; display: flex; align-items: center; gap: 18px; cursor: pointer;
+    transition: transform .15s, box-shadow .15s; text-decoration: none; color: var(--ink); }
+  .mega:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(0,0,0,.12); }
+  .mega .ic { font-size: 40px; }
+  .mega h3 { font-size: 18px; }
+  .mega p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+</style>
+</head>
+<body>
+<canvas class="fx-layer" id="fx"></canvas>
+<div class="toast-wrap" id="toasts"></div>
+
+<header class="topbar">
+  <div class="brand">SAMARRA · 管理后台</div>
+  <div class="who">
+    <span id="nickLabel">—</span>
+    <a class="btn btn-sm btn-ghost" href="index.html">返回大厅</a>
+  </div>
+</header>
+
+<div class="container">
+  <a class="card mega" href="admin/story-editor.html" style="max-width:640px">
+    <div class="ic">📖</div>
+    <div>
+      <h3>文字游戏编辑器</h3>
+      <p>可视化思维导图：拖拽连线、编辑节点文字与选项、实时保存至 story_nodes 表</p>
+    </div>
+  </a>
+
+  <div class="divider"></div>
+
+  <div id="superSection1">
+  <div class="row-between">
+    <h3>👥 管理员管理</h3>
+    <div class="row">
+      <input class="input" id="newAdminNick" placeholder="要提升的昵称" style="width:200px">
+      <button class="btn btn-primary btn-sm" id="newAdminBtn">添加管理员</button>
+    </div>
+  </div>
+  <div class="admin-list mt-16" id="adminList"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="row-between">
+    <h3>🏠 房间管理</h3>
+    <button class="btn btn-sm btn-ghost" id="refreshRoomsBtn">刷新</button>
+  </div>
+  <div class="admin-list mt-16" id="roomList"></div>
+
+  <div class="divider"></div>
+
+  <h3>💎 VIP 价格配置</h3>
+  <div class="card mt-16" style="max-width:640px">
+    <div class="row" style="gap:12px; flex-wrap:wrap">
+      <div class="field" style="flex:1;min-width:160px"><label>VIP 价格</label><input class="input" id="cfgVipPrice" placeholder="¥25/月"></div>
+      <div class="field" style="flex:1;min-width:160px"><label>SVIP 价格</label><input class="input" id="cfgSvipPrice" placeholder="¥68/月"></div>
+    </div>
+    <div class="field"><label>VIP 特权文案</label><input class="input" id="cfgVipDesc"></div>
+    <div class="field"><label>SVIP 特权文案</label><input class="input" id="cfgSvipDesc"></div>
+    <button class="btn btn-primary" id="saveVipCfgBtn">保存配置</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="row-between">
+    <h3>👥 用户管理</h3>
+    <button class="btn btn-sm btn-ghost" id="refreshUsersBtn">刷新</button>
+  </div>
+  <div class="admin-list mt-16" id="userList"></div>
+
+  <div class="divider"></div>
+
+  <div id="superSection2">
+  <h3>🎁 全服发奖</h3>
+  <div class="card mt-8">
+    <div class="field"><label>邮件标题</label><input class="input" id="mailTitle" placeholder="如：维护补偿"></div>
+    <div class="field"><label>邮件内容</label><input class="input" id="mailContent" placeholder="如：感谢玩家支持"></div>
+    <div class="row">
+      <div class="field" style="flex:1"><label>经验奖励（分钟）</label><input class="input" id="mailMinutes" type="number" value="0" min="0"></div>
+      <div class="field" style="flex:1"><label>SVIP 体验（天）</label><input class="input" id="mailVipDays" type="number" value="0" min="0"></div>
+    </div>
+    <button class="btn btn-primary btn-lg" id="broadcastBtn" style="width:100%">一键发送给全服玩家</button>
+  </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div id="superSection3">
+  <h3>📊 服务器实时状态</h3>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:12px 0">
+    <div style="background:#f8f9ff;border-radius:12px;padding:16px;text-align:center">
+      <div style="font-size:28px;font-weight:900;color:#4f46e5" id="stUsers">—</div>
+      <div class="muted" style="font-size:12px">注册用户</div>
+    </div>
+    <div style="background:#f0fdf4;border-radius:12px;padding:16px;text-align:center">
+      <div style="font-size:28px;font-weight:900;color:#10b981" id="stRooms">—</div>
+      <div class="muted" style="font-size:12px">房间总数</div>
+    </div>
+    <div style="background:#fef3c7;border-radius:12px;padding:16px;text-align:center">
+      <div style="font-size:28px;font-weight:900;color:#f59e0b" id="stChats">—</div>
+      <div class="muted" style="font-size:12px">世界聊天</div>
+    </div>
+    <div style="background:#fce7f3;border-radius:12px;padding:16px;text-align:center">
+      <div style="font-size:28px;font-weight:900;color:#ec4899" id="stPms">—</div>
+      <div class="muted" style="font-size:12px">私聊记录</div>
+    </div>
+  </div>
+  <p class="muted" style="font-size:12px">每 10 秒自动刷新</p>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="row-between">
+    <h3>故事列表</h3>
+    <div class="row">
+      <input class="input" id="newStoryTitle" placeholder="新故事标题" style="width:200px">
+      <button class="btn btn-primary btn-sm" id="newStoryBtn">新建故事</button>
+    </div>
+  </div>
+  <div class="admin-list mt-16" id="storyList"></div>
+</div>
+
+<script>
+/* ============ 轻量 Supabase REST 封装 ============ */
+/* 环境配置：优先 URL 参数（存入 sessionStorage 供跳转后使用），其次全局注入，最后内置默认值 */
+(function () {
+  try {
+    const p = new URLSearchParams(location.search);
+    if (p.get("sburl")) sessionStorage.setItem("samarra_cfg", JSON.stringify({ url: p.get("sburl"), key: p.get("sbkey") || "test-key" }));
+  } catch (e) {}
+})();
+const SB_CFG = (function () { try { const s = sessionStorage.getItem("samarra_cfg"); return s ? JSON.parse(s) : null; } catch (e) { return null; } })();
+const SB = {
+  url: (SB_CFG && SB_CFG.url) || (window.SAMARRA_CONFIG && SAMARRA_CONFIG.url) || "https://djvsugbstenltenktpwv.supabase.co",
+  key: (SB_CFG && SB_CFG.key) || (window.SAMARRA_CONFIG && SAMARRA_CONFIG.key) || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqdnN1Z2JzdGVubHRlbmt0cHd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2OTI0MDcsImV4cCI6MjEwNzI2ODQwN30.XMBE7NCridZ34BG7LyRiHQRZP0SkVI209uQhqSgcIAs",
+  async rpc(fn, body) {
+    const r = await fetch(this.url + "/rest/v1/rpc/" + fn, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": this.key, "Authorization": "Bearer " + this.key, "Prefer": "return=representation" },
+      body: JSON.stringify(body || {})
+    });
+    if (!r.ok) {
+      let t = ""; try { t = (await r.json()).message || ""; } catch (e) {}
+      if (!t) { try { t = await r.text(); } catch (e2) {} }
+      throw new Error((t || ("HTTP " + r.status)).slice(0, 160));
+    }
+    const txt = await r.text();
+    return txt ? JSON.parse(txt) : null;
+  }
+};
+
+/* ============ 粒子 ============ */
+(function () {
+  const MAX = 60, BURST = 12;
+  const cv = document.getElementById("fx");
+  const ctx = cv.getContext("2d");
+  let parts = [], W = 0, H = 0;
+  function resize() { W = cv.width = innerWidth; H = cv.height = innerHeight; }
+  resize(); addEventListener("resize", resize);
+  addEventListener("click", function (e) {
+    for (let i = 0; i < BURST; i++) {
+      if (parts.length >= MAX) parts.shift();
+      const a = Math.random() * Math.PI * 2, v = 90 + Math.random() * 160;
+      parts.push({ x: e.clientX, y: e.clientY, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60,
+        life: 1, size: 2 + Math.random() * 3.5,
+        color: ["#4f46e5", "#7c3aed", "#f59e0b", "#10b981", "#ef4444"][(Math.random() * 5) | 0] });
+    }
+  });
+  (function loop() {
+    ctx.clearRect(0, 0, W, H);
+    parts = parts.filter(p => p.life > 0);
+    for (const p of parts) {
+      p.x += p.vx * 0.016; p.y += p.vy * 0.016; p.vy += 260 * 0.016; p.life -= 0.025;
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(loop);
+  })();
+})();
+
+/* ============ 鉴权拦截 ============ */
+const NICK_KEY = "samarra_nickname";
+const nickname = (localStorage.getItem(NICK_KEY) || "").trim();
+
+function toast(msg, type) {
+  const w = document.getElementById("toasts");
+  const t = document.createElement("div");
+  t.className = "toast" + (type ? " " + type : "");
+  t.textContent = msg;
+  w.appendChild(t);
+  setTimeout(() => t.remove(), 2600);
+}
+
+async function guard() {
+  if (!nickname) { location.replace("../login.html"); return false; }
+  document.getElementById("nickLabel").textContent = nickname;
+  try {
+    const ok = await SB.rpc("is_admin", { p_nickname: nickname });
+    if (!ok) {
+      toast("无管理员权限，已拦截", "err");
+      setTimeout(() => location.replace("index.html"), 900);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    toast("鉴权失败，已跳回大厅", "err");
+    setTimeout(() => location.replace("index.html"), 900);
+    return false;
+  }
+}
+
+/* ============ 故事列表 ============ */
+async function loadStories() {
+  const list = document.getElementById("storyList");
+  list.innerHTML = "";
+  try {
+    const rows = await SB.rpc("list_stories", {});
+    if (!rows || !rows.length) {
+      list.innerHTML = '<div class="card muted" style="text-align:center">还没有故事，先新建一个吧</div>';
+      return;
+    }
+    rows.forEach(s => {
+      const d = document.createElement("div");
+      d.className = "admin-item pop-in";
+      d.innerHTML = '<div class="t">📖 ' + escapeHtml(s.title) + '</div>' +
+        '<div class="row"><span class="muted" style="font-size:13px">' + (s.node_count || 0) + ' 个节点</span>' +
+        '<button class="btn btn-primary btn-sm" data-act="edit" data-id="' + s.id + '">编辑</button>' +
+        '<button class="btn btn-sm btn-ghost" data-act="del" data-id="' + s.id + '">删除</button></div>';
+      list.appendChild(d);
+    });
+  } catch (e) { list.innerHTML = '<div class="card muted" style="text-align:center">加载失败：' + escapeHtml(e.message) + '</div>'; }
+}
+
+document.getElementById("storyList").addEventListener("click", e => {
+  const btn = e.target.closest("button[data-act]");
+  if (!btn) return;
+  const id = btn.dataset.id, act = btn.dataset.act;
+  if (act === "edit") location.href = "admin/story-editor.html?story=" + id;
+  if (act === "del") {
+    if (!confirm("确定删除该故事及其全部节点？")) return;
+    SB.rpc("delete_story", { p_story_id: parseInt(id, 10) })
+      .then(() => { toast("已删除", "ok"); loadStories(); })
+      .catch(err => toast(err.message, "err"));
+  }
+});
+
+document.getElementById("newStoryBtn").addEventListener("click", async () => {
+  const title = (document.getElementById("newStoryTitle").value || "").trim();
+  if (!title) { toast("请输入标题", "err"); return; }
+  try {
+    const s = await SB.rpc("create_story", { p_title: title });
+    location.href = "admin/story-editor.html?story=" + s.id;
+  } catch (e) { toast(e.message, "err"); }
+});
+
+/* ============ 管理员管理 ============ */
+async function loadAdmins() {
+  const list = document.getElementById("adminList");
+  list.innerHTML = "";
+  try {
+    const rows = await SB.rpc("admin_list_admins", { p_admin: nickname });
+    if (!rows || !rows.length) {
+      list.innerHTML = '<div class="card muted" style="text-align:center">暂无管理员</div>';
+      return;
+    }
+    rows.forEach(a => {
+      const d = document.createElement("div");
+      d.className = "admin-item pop-in";
+      const isSelf = a.nickname === nickname;
+      d.innerHTML = '<div class="t">👤 ' + escapeHtml(a.nickname) + (isSelf ? ' <span style="color:var(--brand);font-size:12px">(我)</span>' : '') + '</div>';
+      if (!isSelf) {
+        d.innerHTML += '<button class="btn btn-sm btn-danger" data-act="rm-admin" data-nick="' + encodeURIComponent(a.nickname) + '">移除</button>';
+      }
+      list.appendChild(d);
+    });
+  } catch (e) { list.innerHTML = '<div class="card muted" style="text-align:center">加载失败：' + escapeHtml(e.message) + '</div>'; }
+}
+
+document.getElementById("adminList").addEventListener("click", e => {
+  const btn = e.target.closest("button[data-act='rm-admin']");
+  if (!btn) return;
+  const target = decodeURIComponent(btn.dataset.nick);
+  if (!confirm("确定移除管理员 " + target + " ？")) return;
+  SB.rpc("admin_remove_admin", { p_admin: nickname, p_target: target })
+    .then(() => { toast("已移除", "ok"); loadAdmins(); })
+    .catch(err => toast(err.message, "err"));
+});
+
+document.getElementById("newAdminBtn").addEventListener("click", async () => {
+  const t = (document.getElementById("newAdminNick").value || "").trim();
+  if (!t) { toast("请输入昵称", "err"); return; }
+  try {
+    await SB.rpc("admin_add_admin", { p_admin: nickname, p_target: t });
+    toast("已添加管理员：" + t, "ok");
+    document.getElementById("newAdminNick").value = "";
+    loadAdmins();
+  } catch (e) { toast(e.message, "err"); }
+});
+
+/* ============ 房间管理 ============ */
+async function loadRooms() {
+  const list = document.getElementById("roomList");
+  list.innerHTML = "";
+  try {
+    const rows = await SB.rpc("admin_list_rooms", { p_admin: nickname });
+    if (!rows || !rows.length) {
+      list.innerHTML = '<div class="card muted" style="text-align:center">当前没有活跃房间</div>';
+      return;
+    }
+    rows.forEach(r => {
+      const d = document.createElement("div");
+      d.className = "admin-item pop-in";
+      const statusText = { waiting: "等待中", playing: "对局中", ended: "已结束" }[r.status] || r.status;
+      d.innerHTML = '<div class="t">🚪 ' + escapeHtml(r.room_code) +
+        ' <span class="muted" style="font-size:13px">' + r.player_count + "/" + r.max_players + " 人 · " + statusText + '</span></div>' +
+        '<button class="btn btn-sm btn-danger" data-act="dismiss" data-code="' + escapeHtml(r.room_code) + '">解散房间</button>';
+      list.appendChild(d);
+    });
+  } catch (e) { list.innerHTML = '<div class="card muted" style="text-align:center">加载失败：' + escapeHtml(e.message) + '</div>'; }
+}
+
+document.getElementById("roomList").addEventListener("click", e => {
+  const btn = e.target.closest("button[data-act='dismiss']");
+  if (!btn) return;
+  const code = decodeURIComponent(btn.dataset.code);
+  if (!confirm("确定解散房间 " + code + " ？在线玩家会被踢出。")) return;
+  SB.rpc("admin_dismiss_room", { p_admin: nickname, p_room_code: code })
+    .then(() => { toast("已解散", "ok"); loadRooms(); })
+    .catch(err => toast(err.message, "err"));
+});
+
+document.getElementById("refreshRoomsBtn").addEventListener("click", loadRooms);
+
+/* ============ VIP 配置 ============ */
+async function loadVipCfg() {
+  try {
+    let c = await SB.rpc("get_vip_config", {});
+    if (Array.isArray(c)) c = c[0];
+    if (c) {
+      document.getElementById("cfgVipPrice").value = c.vip_price || "";
+      document.getElementById("cfgSvipPrice").value = c.svip_price || "";
+      document.getElementById("cfgVipDesc").value = c.vip_desc || "";
+      document.getElementById("cfgSvipDesc").value = c.svip_desc || "";
+    }
+  } catch (e) { toast("VIP 配置加载失败：" + e.message, "err"); }
+}
+document.getElementById("saveVipCfgBtn").addEventListener("click", async () => {
+  try {
+    await SB.rpc("admin_set_vip_config", {
+      p_admin: nickname,
+      p_vip_price: document.getElementById("cfgVipPrice").value.trim(),
+      p_svip_price: document.getElementById("cfgSvipPrice").value.trim(),
+      p_vip_desc: document.getElementById("cfgVipDesc").value.trim(),
+      p_svip_desc: document.getElementById("cfgSvipDesc").value.trim()
+    });
+    toast("VIP 配置已保存", "ok");
+  } catch (e) { toast(e.message, "err"); }
+});
+
+/* ============ 用户管理 ============ */
+async function loadUsers() {
+  const list = document.getElementById("userList");
+  list.innerHTML = "";
+  try {
+    const rows = await SB.rpc("admin_list_users", { p_admin: nickname });
+    if (!rows || !rows.length) {
+      list.innerHTML = '<div class="card muted" style="text-align:center">还没有用户数据</div>';
+      return;
+    }
+    rows.forEach(u => {
+      const d = document.createElement("div");
+      d.className = "admin-item pop-in";
+      const vtOptions = [
+        [0, "普通用户"],
+        [1, "👑 VIP"],
+        [2, "💎 SVIP"],
+      ];
+      let sel = '<select class="input" style="width:auto" data-nick="' + encodeURIComponent(u.nickname) + '">';
+      vtOptions.forEach(([v, label]) => {
+        sel += '<option value="' + v + '"' + (u.vip_type === v ? " selected" : "") + '>' + label + '</option>';
+      });
+      sel += '</select>';
+      const isSean = u.nickname === "Sean";
+      const resetBtn = isSean ? '' : ' <button class="btn btn-sm btn-ghost" data-act="reset-pwd" data-nick="' + encodeURIComponent(u.nickname) + '">重置密码</button>';
+      const banBtn = isSean ? '' : (u.banned
+        ? ' <button class="btn btn-sm btn-ok" data-act="unban" data-nick="' + encodeURIComponent(u.nickname) + '">解封</button>'
+        : ' <button class="btn btn-sm btn-danger" data-act="ban" data-nick="' + encodeURIComponent(u.nickname) + '">封禁</button>');
+      const banTag = u.banned ? ' <span style="color:#ef4444;font-size:11px;font-weight:700">[已封禁]</span>' : '';
+      d.innerHTML = '<div class="t">' + escapeHtml(u.nickname) + banTag +
+        (isSean ? ' <span style="color:var(--brand);font-size:12px">(超管·最高权限)</span>' : '') +
+        ' <span class="muted" style="font-size:12px">Lv.' + (u.level >= 10 ? "MAX" : u.level) + ' · 在线 ' + u.minutes + ' 分钟</span></div>' +
+        (isSean ? '<span class="muted" style="font-size:12px">不可修改</span>' : sel + resetBtn + banBtn);
+      list.appendChild(d);
+    });
+  } catch (e) { list.innerHTML = '<div class="card muted" style="text-align:center">加载失败：' + escapeHtml(e.message) + '</div>'; }
+}
+document.getElementById("userList").addEventListener("click", async e => {
+  const btn = e.target.closest("button[data-act='reset-pwd'], button[data-act='ban'], button[data-act='unban']");
+  if (!btn) return;
+  const target = decodeURIComponent(btn.dataset.nick);
+  const act = btn.dataset.act;
+  if (act === "reset-pwd") {
+    if (!confirm("确定将 " + target + " 的密码重置为 123456 ？")) return;
+    try { await SB.rpc("admin_reset_password", { p_admin: nickname, p_target: target }); toast("已重置密码", "ok"); } catch (err) { toast(err.message, "err"); }
+  } else if (act === "ban") {
+    if (!confirm("确定封禁 " + target + " ？该用户将无法登录")) return;
+    try { await SB.rpc("ban_user", { p_admin: nickname, p_target: target }); toast("已封禁 " + target, "ok"); loadUsers(); } catch (err) { toast(err.message, "err"); }
+  } else if (act === "unban") {
+    try { await SB.rpc("unban_user", { p_admin: nickname, p_target: target }); toast("已解封 " + target, "ok"); loadUsers(); } catch (err) { toast(err.message, "err"); }
+  }
+});
+document.getElementById("userList").addEventListener("change", async e => {
+  const sel = e.target.closest("select[data-nick]");
+  if (!sel) return;
+  const target = decodeURIComponent(sel.dataset.nick);
+  const vip = parseInt(sel.value, 10);
+  try {
+    await SB.rpc("admin_set_user_vip", { p_admin: nickname, p_target: target, p_vip_type: vip });
+    toast("已更新 " + target + " 的身份", "ok");
+  } catch (err) { toast(err.message, "err"); loadUsers(); }
+});
+document.getElementById("refreshUsersBtn").addEventListener("click", loadUsers);
+document.getElementById("broadcastBtn").addEventListener("click", async () => {
+  const title = document.getElementById("mailTitle").value.trim();
+  const content = document.getElementById("mailContent").value.trim();
+  const mins = parseInt(document.getElementById("mailMinutes").value) || 0;
+  const days = parseInt(document.getElementById("mailVipDays").value) || 0;
+  if (!title) { toast("请输入邮件标题", "err"); return; }
+  if (!confirm("确定发送全服邮件《" + title + "》给所有玩家？")) return;
+  try {
+    const cnt = await SB.rpc("send_broadcast", { p_admin: nickname, p_title: title, p_content: content, p_minutes: mins, p_vip_days: days });
+    toast("已发送给 " + cnt + " 位玩家", "ok");
+  } catch (e) { toast(e.message, "err"); }
+});
+
+/* ============ 启动 ============ */
+guard().then(ok => {
+  if (!ok) return;
+  /* 权限分级：Sean 是超管看全部，普通管理员隐藏高危模块 */
+  const isSuper = nickname === "Sean";
+  if (!isSuper) {
+    document.getElementById("superSection1").style.display = "none";
+    document.getElementById("superSection2").style.display = "none";
+    document.getElementById("superSection3").style.display = "none";
+    document.title = "管理后台 · SAMARRA";
+  } else {
+    async function refreshStats() {
+      try {
+        const s = await SB.rpc("server_stats", {});
+        if (s) {
+          document.getElementById("stUsers").textContent = s.users;
+          document.getElementById("stRooms").textContent = s.rooms;
+          document.getElementById("stChats").textContent = s.chats;
+          document.getElementById("stPms").textContent = s.pms;
+        }
+      } catch (e) {}
+    }
+    refreshStats();
+    setInterval(refreshStats, 10000);
+  }
+  loadStories(); loadAdmins(); loadRooms(); loadVipCfg(); loadUsers();
+});
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+</script>
+</body>
+</html>
