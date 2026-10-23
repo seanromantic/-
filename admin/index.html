@@ -27,7 +27,7 @@
 </header>
 
 <div class="container">
-  <a class="card mega" href="admin/story-editor.html" style="max-width:640px">
+  <a class="card mega" href="story-editor.html" style="max-width:640px">
     <div class="ic">📖</div>
     <div>
       <h3>文字游戏编辑器</h3>
@@ -246,7 +246,7 @@ document.getElementById("storyList").addEventListener("click", e => {
   const btn = e.target.closest("button[data-act]");
   if (!btn) return;
   const id = btn.dataset.id, act = btn.dataset.act;
-  if (act === "edit") location.href = "admin/story-editor.html?story=" + id;
+  if (act === "edit") location.href = "story-editor.html?story=" + id;
   if (act === "del") {
     if (!confirm("确定删除该故事及其全部节点？")) return;
     SB.rpc("delete_story", { p_story_id: parseInt(id, 10) })
@@ -260,7 +260,7 @@ document.getElementById("newStoryBtn").addEventListener("click", async () => {
   if (!title) { toast("请输入标题", "err"); return; }
   try {
     const s = await SB.rpc("create_story", { p_title: title });
-    location.href = "admin/story-editor.html?story=" + s.id;
+    location.href = "story-editor.html?story=" + s.id;
   } catch (e) { toast(e.message, "err"); }
 });
 
