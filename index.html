@@ -49,10 +49,6 @@
 <header class="topbar">
   <div class="brand">🎮 SAMARRA</div>
   <div class="who">
-    <div id="myAvatar" style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:900;cursor:pointer;position:relative;margin-right:6px" title="个人主页">
-      <span id="myAvatarChar">?</span>
-      <span id="myVipBadge" style="display:none;position:absolute;bottom:-3px;right:-3px;width:16px;height:16px;border-radius:50%;background:#111;color:#ffd700;font-size:8px;display:flex;align-items:center;justify-content:center;border:2px solid #fff;font-weight:900">SV</span>
-    </div>
     <span id="nickLabel">—</span>
     <span id="myLevel" style="font-size:11px;color:var(--muted);margin-left:6px">Lv.MAX</span>
     <button class="btn btn-sm btn-ghost" id="mailBtn" title="邮件" style="margin-left:10px" onclick="openMailModal()">📬<span id="mailBadge" style="display:none;background:#ef4444;color:#fff;border-radius:999px;padding:1px 6px;font-size:11px;margin-left:2px">0</span></button>
@@ -412,9 +408,8 @@ function toggleSettingsMenu(e) {
   const m = document.getElementById("settingsMenu");
   m.style.display = m.style.display === "none" ? "block" : "none";
 }
-/* 第一步：立即显示昵称头像 */
+/* 第一步：立即显示昵称 */
 document.getElementById("nickLabel").textContent = nickname || "—";
-document.getElementById("myAvatarChar").textContent = nickname ? nickname[0].toUpperCase() : "?";
 /* 第二步：立即绑按钮事件 */
 document.getElementById("mailBtn").addEventListener("click", openMailModal);
 document.getElementById("settingsBtn").addEventListener("click", e => {
