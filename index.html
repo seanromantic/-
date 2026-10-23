@@ -403,13 +403,13 @@ async function openProfileModal(pNick) {
 }
 
 /* 页面加载完，所有 DOM 都有了，立即执行 */
+/* 第一步：最优先显示昵称 */
+document.getElementById("nickLabel").textContent = nickname || "—";
 function toggleSettingsMenu(e) {
   e.stopPropagation();
   const m = document.getElementById("settingsMenu");
   m.style.display = m.style.display === "none" ? "block" : "none";
 }
-/* 第一步：立即显示昵称 */
-document.getElementById("nickLabel").textContent = nickname || "—";
 /* 第二步：立即绑按钮事件 */
 document.getElementById("mailBtn").addEventListener("click", openMailModal);
 document.getElementById("settingsBtn").addEventListener("click", e => {
