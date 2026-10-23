@@ -36,6 +36,13 @@
 </style>
 </head>
 <body>
+<script>
+/* 等 DOM 加载完立即显示昵称 */
+window.addEventListener('DOMContentLoaded', function() {
+  var n = localStorage.getItem('samarra_nickname');
+  if (n) document.getElementById('nickLabel').textContent = n;
+});
+</script>
 <canvas class="fx-layer" id="fx"></canvas>
 <div class="toast-wrap" id="toasts"></div>
 
@@ -49,7 +56,7 @@
 <header class="topbar">
   <div class="brand">🎮 SAMARRA</div>
   <div class="who">
-    <span id="nickLabel"><script>document.write(localStorage.getItem('samarra_nickname') || '—')</script></span>
+    <span id="nickLabel">—</span>
     <span id="myLevel" style="font-size:11px;color:var(--muted);margin-left:6px">Lv.MAX</span>
     <button class="btn btn-sm btn-ghost" id="mailBtn" title="邮件" style="margin-left:10px" onclick="openMailModal()">📬<span id="mailBadge" style="display:none;background:#ef4444;color:#fff;border-radius:999px;padding:1px 6px;font-size:11px;margin-left:2px">0</span></button>
     <button class="btn btn-sm btn-ghost" id="settingsBtn" title="菜单" onclick="toggleSettingsMenu(event)">⚙️</button>
