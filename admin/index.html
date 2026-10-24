@@ -80,15 +80,28 @@
   <div class="divider"></div>
 
   <div id="superSection2">
-  <h3>🎁 全服发奖</h3>
+  <h3>🎁 发放奖励</h3>
   <div class="card mt-8">
+    <div class="field">
+      <label>发送范围</label>
+      <div class="chip-group">
+        <div class="chip active" id="scopeAll" onclick="setMailScope('all')">🌍 全服玩家</div>
+        <div class="chip" id="scopeUsers" onclick="setMailScope('users')">👥 指定用户</div>
+      </div>
+    </div>
+    <div class="field" id="userPicker" style="display:none">
+      <label>选择用户（可多选）</label>
+      <div id="mailUserList" style="max-height:200px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:8px;padding:8px">
+        <div class="muted" style="text-align:center;padding:10px">加载中…</div>
+      </div>
+    </div>
     <div class="field"><label>邮件标题</label><input class="input" id="mailTitle" placeholder="如：维护补偿"></div>
     <div class="field"><label>邮件内容</label><input class="input" id="mailContent" placeholder="如：感谢玩家支持"></div>
     <div class="row">
       <div class="field" style="flex:1"><label>经验奖励（分钟）</label><input class="input" id="mailMinutes" type="number" value="0" min="0"></div>
       <div class="field" style="flex:1"><label>SVIP 体验（天）</label><input class="input" id="mailVipDays" type="number" value="0" min="0"></div>
     </div>
-    <button class="btn btn-primary btn-lg" id="broadcastBtn" style="width:100%">一键发送给全服玩家</button>
+    <button class="btn btn-primary btn-lg" id="broadcastBtn" style="width:100%" onclick="sendMail()">发送奖励</button>
   </div>
   </div>
 
@@ -431,18 +444,74 @@ document.getElementById("userList").addEventListener("change", async e => {
   } catch (err) { toast(err.message, "err"); loadUsers(); }
 });
 document.getElementById("refreshUsersBtn").addEventListener("click", loadUsers);
-document.getElementById("broadcastBtn").addEventListener("click", async () => {
+/* ============ 发奖系统 ============ */
+let mailScope = "all";
+let mailSelectedUsers = [];
+
+function setMailScope(scope) {
+  mailScope = scope;
+  document.getElementById("scopeAll").classList.toggle("active", scope === "all");
+  document.getElementById("scopeUsers").classList.toggle("active", scope === "users");
+  document.getElementById("userPicker").style.display = scope === "users" ? "" : "none";
+  if (scope === "users") loadMailUsers();
+}
+
+async function loadMailUsers() {
+  const list = document.getElementById("mailUserList");
+  list.innerHTML = '<div class="muted" style="text-align:center;padding:10px">加载中…</div>';
+  try {
+    const rows = await SB.rpc("admin_list_users", { p_admin: nickname });
+    if (!rows || !rows.length) {
+      list.innerHTML = '<div class="muted" style="text-align:center;padding:10px">暂无用户</div>';
+      return;
+    }
+    list.innerHTML = "";
+    rows.forEach(u => {
+      const d = document.createElement("label");
+      d.style.cssText = "display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;border-bottom:1px solid #f3f4f6";
+      d.innerHTML = '<input type="checkbox" value="' + escapeHtml(u.nickname) + '" onchange="toggleMailUser(this)">' +
+        '<span>' + escapeHtml(u.nickname) + '</span>' +
+        (u.vip_type >= 2 ? '<span style="color:#7c3aed;font-size:11px">💎SVIP</span>' : u.vip_type >= 1 ? '<span style="color:#f59e0b;font-size:11px">👑VIP</span>' : '');
+      list.appendChild(d);
+    });
+  } catch (e) {
+    list.innerHTML = '<div class="muted" style="text-align:center;padding:10px">加载失败</div>';
+  }
+}
+
+function toggleMailUser(cb) {
+  if (cb.checked) {
+    if (!mailSelectedUsers.includes(cb.value)) mailSelectedUsers.push(cb.value);
+  } else {
+    mailSelectedUsers = mailSelectedUsers.filter(u => u !== cb.value);
+  }
+}
+
+async function sendMail() {
   const title = document.getElementById("mailTitle").value.trim();
   const content = document.getElementById("mailContent").value.trim();
   const mins = parseInt(document.getElementById("mailMinutes").value) || 0;
   const days = parseInt(document.getElementById("mailVipDays").value) || 0;
   if (!title) { toast("请输入邮件标题", "err"); return; }
-  if (!confirm("确定发送全服邮件《" + title + "》给所有玩家？")) return;
+  if (mailScope === "users" && mailSelectedUsers.length === 0) {
+    toast("请至少选择一个用户", "err"); return;
+  }
+  const scopeText = mailScope === "all" ? "全服玩家" : mailSelectedUsers.length + " 位用户";
+  if (!confirm("确定发送邮件《" + title + "》给" + scopeText + "？")) return;
   try {
-    const cnt = await SB.rpc("send_broadcast", { p_admin: nickname, p_title: title, p_content: content, p_minutes: mins, p_vip_days: days });
-    toast("已发送给 " + cnt + " 位玩家", "ok");
+    if (mailScope === "all") {
+      const cnt = await SB.rpc("send_broadcast", { p_admin: nickname, p_title: title, p_content: content, p_minutes: mins, p_vip_days: days });
+      toast("已发送给 " + cnt + " 位玩家", "ok");
+    } else {
+      for (const u of mailSelectedUsers) {
+        await SB.rpc("send_mail_to_user", { p_admin: nickname, p_target: u, p_title: title, p_content: content, p_minutes: mins, p_vip_days: days });
+      }
+      toast("已发送给 " + mailSelectedUsers.length + " 位用户", "ok");
+      mailSelectedUsers = [];
+      loadMailUsers();
+    }
   } catch (e) { toast(e.message, "err"); }
-});
+}
 
 /* ============ 启动 ============ */
 guard().then(ok => {
