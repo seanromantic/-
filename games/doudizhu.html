@@ -687,12 +687,27 @@ QUICK_MSGS.forEach(q => {
 document.getElementById("chatSend").onclick = () => sendChat(document.getElementById("chatInput").value);
 document.getElementById("chatInput").addEventListener("keydown", e => { if (e.key === "Enter") sendChat(e.target.value); });
 document.getElementById("chatToggle").onclick = function() {
-  const list = document.getElementById("chatList"), qm = document.getElementById("quickMsgs"), inp = chatDiv.querySelector("div:last-child");
-  const hidden = list.style.display === "none";
-  list.style.display = hidden ? "" : "none";
-  qm.style.display = hidden ? "" : "none";
-  inp.style.display = hidden ? "" : "none";
+  const hidden = chatDiv.style.transform === "translateX(100%)";
+  chatDiv.style.transform = hidden ? "translateX(0)" : "translateX(100%)";
   this.textContent = hidden ? "−" : "+";
+  if (!hidden) {
+    // 隐藏时在边缘显示一个小图标
+    if (!document.getElementById("chatShowBtn")) {
+      const showBtn = document.createElement("button");
+      showBtn.id = "chatShowBtn";
+      showBtn.style.cssText = "position:fixed;right:0;top:100px;width:36px;height:60px;background:#4f46e5;color:#fff;border:none;border-radius:12px 0 0 12px;cursor:pointer;z-index:99;font-size:16px;box-shadow:-2px 2px 8px rgba(0,0,0,.15)";
+      showBtn.textContent = "💬";
+      showBtn.onclick = () => {
+        chatDiv.style.transform = "translateX(0)";
+        document.getElementById("chatToggle").textContent = "−";
+        showBtn.remove();
+      };
+      document.body.appendChild(showBtn);
+    }
+  } else {
+    const showBtn = document.getElementById("chatShowBtn");
+    if (showBtn) showBtn.remove();
+  }
 };
 
 async function sendChat(text) {
