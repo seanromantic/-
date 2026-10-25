@@ -813,7 +813,7 @@ BEGIN
   -- 重复张数校验（手牌中该牌数量必须 ≥ 出牌中该牌数量）
   FOR v_i IN 1..cardinality(v_cards) LOOP
     IF (SELECT count(*) FROM unnest(v_cards) u WHERE u = v_cards[v_i])
-       > (SELECT count(*) FROM jsonb_array_elements_text(v_hand) h WHERE h.x::int = v_cards[v_i]) THEN
+       > (SELECT count(*) FROM jsonb_array_elements_text(v_hand) AS h(x) WHERE h.x::int = v_cards[v_i]) THEN
       RAISE EXCEPTION '出牌张数超出持有数量';
     END IF;
   END LOOP;
@@ -840,7 +840,7 @@ BEGIN
   v_new_hand := '[]'::jsonb;
   FOR v_card IN SELECT DISTINCT x::int FROM jsonb_array_elements_text(v_hand) AS x ORDER BY 1 LOOP
     v_play_cnt := (SELECT count(*) FROM unnest(v_cards) c WHERE c = v_card);
-    v_hand_cnt := (SELECT count(*) FROM jsonb_array_elements_text(v_hand) h WHERE h.x::int = v_card);
+    v_hand_cnt := (SELECT count(*) FROM jsonb_array_elements_text(v_hand) AS h(x) WHERE h.x::int = v_card);
     FOR v_j IN 1..(v_hand_cnt - v_play_cnt) LOOP
       v_new_hand := v_new_hand || to_jsonb(v_card);
     END LOOP;
